@@ -73,7 +73,7 @@ float CalculateSkillExpForLevel(UInt32 skillID, float skillLevel)
         auto pSetting = (*g_gameSettingCollection)->Get("fSkillUseCurve");
         fSkillUseCurve = (pSetting != nullptr) ? pSetting->data.f32 : 1.95f;
     }
-    if(skillLevel < settings.settingsSkillCaps[skillID - 6])
+    if (skillLevel < settings.GetSkillCap(skillID))
     {
         result = pow(skillLevel, fSkillUseCurve);
         float a = 1.0f, b = 0.0f, c = 1.0f, d = 0.0f;
@@ -269,46 +269,13 @@ void ModifyPerkPool_Hook(SInt8 count)
 
 float GetSkillCap_Hook(UInt32 skillID)
 {
-    const UInt32 skillIDMinus6 = skillID - 6;
-    if (skillIDMinus6 < Settings::kNumAdvanceableSkills) [[likely]]
-    {
-#ifdef _DEBUG
-        _MESSAGE("GetSkillCap_Hook skillID: %u, skillCap: %u", (unsigned)skillIDMinus6, (unsigned)settings.settingsSkillCaps[skillIDMinus6]);
-#endif
-        return settings.settingsSkillCaps[skillIDMinus6];
-    }
-    else
-    {
-//#ifdef _DEBUG
-        // SkillId checked before hook. Never should be here.
-        _WARNING("GetSkillCap_Hook bad skill: %u", (unsigned)skillID);
-//#endif
-        return 100.0f;
-    }
+    return settings.GetSkillCap(skillID);
 }
 
 static float ClampSkillEffect(uint32_t skillID, const float val)
 {
-    /* Replaced code is
-    if (100.0 <= result)
-      result = 100.0;
-    if (result <= 0.0)
-      result = 0.0; */
-    float cap;
-    const unsigned skillIDfromZero = skillID - 6;
-    if (skillIDfromZero < Settings::kNumAdvanceableSkills) [[likely]]
-    {
-        cap = settings.settingsSkillFormulaCaps[skillIDfromZero];
-    }
-    else
-    {
-        cap = 100.0;
-    }
-    if (val >= cap)
-        return cap;
-    if (val <= 0)
-        return 0;
-    return val;
+    float cap = settings.GetSkillFormulaCap(skillID);
+    return (val <= 0) ? 0 : ((val >= cap) ? cap : val);
 }
 
 /*float GetCurrentActorValue_Hook(void* avo, UInt32 skillID)   //PC&NPC  //61F6C0

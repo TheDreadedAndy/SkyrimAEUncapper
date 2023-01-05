@@ -6,10 +6,9 @@
  * Modified by Kasplat to clean up initialization.
  */
 
-#undef NDEBUG
-#include <cassert>
 #include <cstdio>
 
+#include "common/IErrors.h"
 #include "Settings.h"
 #include "Utilities.h"
 
@@ -86,15 +85,15 @@ IniSetValueFloat(
     float val,
     const char *comment
 ) {
-    assert(section);
-    assert(key);
+    ASSERT(section);
+    ASSERT(key);
 
     // Floats can be long bois.
     const size_t buf_size = 64;
     char buf[buf_size];
 
     int res = snprintf(buf, buf_size, "%.2f", val);
-    assert((0 <= res) && (res < buf_size));
+    ASSERT((0 <= res) && (res < buf_size));
 
     ini.SetValue(section, key, buf, comment);
 }
@@ -109,128 +108,28 @@ Settings::GetSkillStr(
     player_skill_e skill,
     const char *prefix
 ) {
-    assert(buf);
-    assert(buf_size > 0);
-    assert(skill < SKILL__COUNT__);
-    assert(prefix);
+    ASSERT(buf);
+    ASSERT(buf_size > 0);
+    ASSERT(skill < kSkillCount);
+    ASSERT(prefix);
 
     int res = snprintf(buf, buf_size, "%s%s", prefix, skillNames[skill]);
-    assert((0 <= res) && (res < buf_size));
+    ASSERT((0 <= res) && (res < buf_size));
 }
 
 /**
- * @brief Creates a new settings manager.
- */
-Settings::Settings() {}
-
-/**
- * @brief Loads in the INI configuration from the given path.
+ * @brief Converts the given skill ID to a player skill enumeration.
  *
- * If the given file does not exist, the INI will be created with the default
- * settings at the specified location.
+ * The provided ID must be valid.
  *
- * @param path The path to read the INI file from.
+ * @param skill_id The ID to be converted.
  */
-bool
-Settings::ReadConfig(
-    const std::string &path
+player_skill_e
+Settings::GetSkillFromId(
+    unsigned int skill_id
 ) {
-    // Attempt to load the INI file.
-    _MESSAGE("Config file path:%s", path.c_str());
-    CSimpleIniA ini;
-    SI_Error er = ini.LoadFile(path.c_str());
-    bool needSave = false;
-    if (er < SI_OK) {
-        if ((er != SI_FILE) || (errno != ENOENT)) {
-            _ERROR("Can't load config file ret:%d errno:%d", (int)er,  errno);
-            return false;
-        }
-        needSave = true; // No such file or directory.
-    }
-
-    // Load general info.
-    settingsGeneral.version = ini.GetLongValue("General", "Version", 0);
-    settingsGeneral.author = ini.GetValue("General", "Author", "Kassent");
-    _MESSAGE("INI version: %d", settingsGeneral.version);
-
-    // Check if we need to write out the configuration.
-    if (needSave) {
-        _MESSAGE("Config file does not exist. Trying to create.");
-    } else if (settingsGeneral.version != CONFIG_VERSION) {
-        _MESSAGE("Config file is outdated. Updating.");
-        needSave = true;
-    }
-
-    // Big enough.
-    const size_t skill_buf_size = 128;
-    char skill_buf[skill_buf_size];
-
-    // Iterate over settings for each skill.
-    for (size_t i = 0; i < SKILL__COUNT__; i++) {
-        /* Load default caps */
-        GetSkillStr(skill_buf, skill_buf_size, i, "i");
-
-        settingsSkillCaps.insert({
-            i,
-            ini.GetLongValue("SkillCaps", skill_buf, 100)
-        });
-
-        settingsSkillFormulaCaps.insert({
-            i,
-            ini.GetLongValue("SkillFormulaCaps", skill_buf, 100)
-        });
-
-        /* Load EXP multipliers */
-        GetSkillStr(skill_buf, skill_buf_size, i, "f");
-
-        settingsSkillExpGainMults.insert({
-            i,
-            atof(ini.GetValue("SkillExpGainMults", skill_buf, "1.00"))
-        });
-
-        settingsLevelSkillExpMults.insert({
-            i,
-            atof(ini.GetValue("LevelSkillExpMults", skill_buf, "1.00"))
-        });
-
-        GetSkillStr(skill_buf, skill_buf_size, i, "SkillExpGainMults\\CharacterLevel\\");
-        ReadFloatLevelListSection(ini, settingsSkillExpGainMultsWithPCLevel[i], skill_buf, 1.00);
-
-        GetSkillStr(skill_buf, skill_buf_size, i, "SkillExpGainMults\\BaseSkillLevel\\");
-        ReadFloatLevelListSection(ini, settingsSkillExpGainMultsWithSkills[i], skill_buf, 1.00);
-
-        GetSkillStr(skill_buf, skill_buf_size, i, "LevelSkillExpMults\\CharacterLevel\\");
-        ReadFloatLevelListSection(ini, settingsLevelSkillExpMultsWithPCLevel[i], skill_buf, 1.00);
-
-        GetSkillStr(skill_buf, skill_buf_size, i, "LevelSkillExpMults\\BaseSkillLevel\\");
-        ReadFloatLevelListSection(ini, settingsLevelSkillExpMultsWithSkills[i], skill_buf, 1.00);
-    }
-
-    /* Level-up settings */
-    ReadFloatLevelListSection(ini, settingsPerksAtLevelUp, "PerksAtLevelUp", 1.00);
-    ReadIntLevelListSection(ini, settingsHealthAtLevelUp, "HealthAtLevelUp", 10);
-    ReadIntLevelListSection(ini, settingsMagickaAtLevelUp, "MagickaAtLevelUp", 10);
-    ReadIntLevelListSection(ini, settingsStaminaAtLevelUp, "StaminaAtLevelUp", 10);
-    ReadIntLevelListSection(ini, settingsCarryWeightAtHealthLevelUp, "CarryWeightAtHealthLevelUp", 0);
-    ReadIntLevelListSection(ini, settingsCarryWeightAtMagickaLevelUp, "CarryWeightAtMagickaLevelUp", 0);
-    ReadIntLevelListSection(ini, settingsCarryWeightAtStaminaLevelUp, "CarryWeightAtStaminaLevelUp", 5);
-
-    /* Legendary Skill Settings */
-    settings.settingsLegendarySkill.bLegendaryKeepSkillLevel =
-        ini.GetBoolValue("LegendarySkill", "bLegendaryKeepSkillLevel", false);
-    settings.settingsLegendarySkill.bHideLegendaryButton =
-        ini.GetBoolValue("LegendarySkill", "bHideLegendaryButton", true);
-    settings.settingsLegendarySkill.iSkillLevelEnableLegendary =
-        ini.GetLongValue("LegendarySkill", "iSkillLevelEnableLegendary", 100);
-    settings.settingsLegendarySkill.iSkillLevelAfterLegendary =
-        ini.GetLongValue("LegendarySkill", "iSkillLevelAfterLegendary", 0);
-
-    // Save the configuration, if necessary.
-    if (needSave) {
-        return SaveConfig(ini, path);
-    } else {
-        return true;
-    }
+    ASSERT((kSkillOffset <= skill_id) && (skill_id < (kSkillCount + kSkillOffset)));
+    return static_cast<player_skill_e>(skill_id - kSkillOffset);
 }
 
 /**
@@ -255,7 +154,7 @@ Settings::SaveConfig(
     ini.SetValue("General", "Author", "Kassent", NULL);
 
     // Save the per-skill settings.
-    for (int i = 0; i < SKILL__COUNT__; i++) {
+    for (int i = 0; i < kSkillCount; i++) {
         /* Skill cap settings */
         GetSkillStr(skill_buf, skill_buf_size, i, "i");
 
@@ -368,4 +267,131 @@ Settings::SaveConfig(
         _MESSAGE("Config file updated.");
         return true;
     }
+}
+
+/**
+ * @brief Creates a new settings manager.
+ */
+Settings::Settings() {}
+
+/**
+ * @brief Loads in the INI configuration from the given path.
+ *
+ * If the given file does not exist, the INI will be created with the default
+ * settings at the specified location.
+ *
+ * @param path The path to read the INI file from.
+ */
+bool
+Settings::ReadConfig(
+    const std::string &path
+) {
+    // Attempt to load the INI file.
+    _MESSAGE("Config file path:%s", path.c_str());
+    CSimpleIniA ini;
+    SI_Error er = ini.LoadFile(path.c_str());
+    bool needSave = false;
+    if (er < SI_OK) {
+        if ((er != SI_FILE) || (errno != ENOENT)) {
+            _ERROR("Can't load config file ret:%d errno:%d", (int)er,  errno);
+            return false;
+        }
+        needSave = true; // No such file or directory.
+    }
+
+    // Load general info.
+    settingsGeneral.version = ini.GetLongValue("General", "Version", 0);
+    settingsGeneral.author = ini.GetValue("General", "Author", "Kassent");
+    _MESSAGE("INI version: %d", settingsGeneral.version);
+
+    // Check if we need to write out the configuration.
+    if (needSave) {
+        _MESSAGE("Config file does not exist. Trying to create.");
+    } else if (settingsGeneral.version != CONFIG_VERSION) {
+        _MESSAGE("Config file is outdated. Updating.");
+        needSave = true;
+    }
+
+    // Big enough.
+    const size_t skill_buf_size = 128;
+    char skill_buf[skill_buf_size];
+
+    // Iterate over settings for each skill.
+    for (size_t i = 0; i < kSkillCount; i++) {
+        /* Load default caps */
+        GetSkillStr(skill_buf, skill_buf_size, i, "i");
+        settingsSkillCaps[i] = ini.GetLongValue("SkillCaps", skill_buf, 100);
+        settingsSkillFormulaCaps[i] = ini.GetLongValue("SkillFormulaCaps", skill_buf, 100);
+
+        /* Load EXP multipliers */
+        GetSkillStr(skill_buf, skill_buf_size, i, "f");
+
+        settingsSkillExpGainMults.insert({
+            i,
+            atof(ini.GetValue("SkillExpGainMults", skill_buf, "1.00"))
+        });
+
+        settingsLevelSkillExpMults.insert({
+            i,
+            atof(ini.GetValue("LevelSkillExpMults", skill_buf, "1.00"))
+        });
+
+        GetSkillStr(skill_buf, skill_buf_size, i, "SkillExpGainMults\\CharacterLevel\\");
+        ReadFloatLevelListSection(ini, settingsSkillExpGainMultsWithPCLevel[i], skill_buf, 1.00);
+
+        GetSkillStr(skill_buf, skill_buf_size, i, "SkillExpGainMults\\BaseSkillLevel\\");
+        ReadFloatLevelListSection(ini, settingsSkillExpGainMultsWithSkills[i], skill_buf, 1.00);
+
+        GetSkillStr(skill_buf, skill_buf_size, i, "LevelSkillExpMults\\CharacterLevel\\");
+        ReadFloatLevelListSection(ini, settingsLevelSkillExpMultsWithPCLevel[i], skill_buf, 1.00);
+
+        GetSkillStr(skill_buf, skill_buf_size, i, "LevelSkillExpMults\\BaseSkillLevel\\");
+        ReadFloatLevelListSection(ini, settingsLevelSkillExpMultsWithSkills[i], skill_buf, 1.00);
+    }
+
+    /* Level-up settings */
+    ReadFloatLevelListSection(ini, settingsPerksAtLevelUp, "PerksAtLevelUp", 1.00);
+    ReadIntLevelListSection(ini, settingsHealthAtLevelUp, "HealthAtLevelUp", 10);
+    ReadIntLevelListSection(ini, settingsMagickaAtLevelUp, "MagickaAtLevelUp", 10);
+    ReadIntLevelListSection(ini, settingsStaminaAtLevelUp, "StaminaAtLevelUp", 10);
+    ReadIntLevelListSection(ini, settingsCarryWeightAtHealthLevelUp, "CarryWeightAtHealthLevelUp", 0);
+    ReadIntLevelListSection(ini, settingsCarryWeightAtMagickaLevelUp, "CarryWeightAtMagickaLevelUp", 0);
+    ReadIntLevelListSection(ini, settingsCarryWeightAtStaminaLevelUp, "CarryWeightAtStaminaLevelUp", 5);
+
+    /* Legendary Skill Settings */
+    settings.settingsLegendarySkill.bLegendaryKeepSkillLevel =
+        ini.GetBoolValue("LegendarySkill", "bLegendaryKeepSkillLevel", false);
+    settings.settingsLegendarySkill.bHideLegendaryButton =
+        ini.GetBoolValue("LegendarySkill", "bHideLegendaryButton", true);
+    settings.settingsLegendarySkill.iSkillLevelEnableLegendary =
+        ini.GetLongValue("LegendarySkill", "iSkillLevelEnableLegendary", 100);
+    settings.settingsLegendarySkill.iSkillLevelAfterLegendary =
+        ini.GetLongValue("LegendarySkill", "iSkillLevelAfterLegendary", 0);
+
+    // Save the configuration, if necessary.
+    if (needSave) {
+        return SaveConfig(ini, path);
+    } else {
+        return true;
+    }
+}
+
+/**
+ * @brief Gets the skill cap for the given skill ID.
+ */
+float
+Settings::GetSkillCap(
+    unsigned int skill_id
+) {
+    return settingsSkillCaps[GetSkillFromId(skill_id)];
+}
+
+/**
+ * @brief Gets the skill formula cap for the given skill ID.
+ */
+float
+Settings::GetSkillFormulaCap(
+    unsigned int skill_id
+) {
+    return settingsSkillFormulaCaps[GetSkillFromId(skill_id)];
 }

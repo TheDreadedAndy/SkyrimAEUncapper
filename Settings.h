@@ -56,31 +56,16 @@ struct SettingList : public std::map < UInt32, T>
     }
 };
 
-struct SettingsGeneral
-{
-    UInt32                version;
-    std::string            author;
-};
-
-struct SettingsLegendarySkill
-{
-    bool                bLegendaryKeepSkillLevel;
-    bool                bHideLegendaryButton;
-    UInt32                iSkillLevelEnableLegendary;
-    UInt32                iSkillLevelAfterLegendary;
-};
-
 class Settings {
   private:
-    enum {
-        kAdvanceableSkillOffset = 6,
-        kNumAdvanceableSkills = 18
-    };
+    /// @brief Offset from raw skill IDs to the skill enumeration values.
+    const unsigned int kSkillOffset = 6;
 
     /**
      * @brief Encodes the skills in the order of their IDs.
      *
      * Note that we must subtract 6 from a skill ID to convert it to this enum.
+     * As such, the order of the values in this enumeration MUST NOT be changed.
      */
     typedef enum {
         SKILL_ONEHANDED,
@@ -101,7 +86,7 @@ class Settings {
         SKILL_ILLUSION,
         SKILL_RESTORATION,
         SKILL_ENCHANTING,
-        SKILL__COUNT__
+        kSkillCount
     } player_skill_e;
 
     /// @brief Used to convert a skill enum to a skill name.
@@ -206,16 +191,31 @@ class Settings {
 
     void GetSkillStr(char *buf, size_t size, player_skill_e skill,
                      const char *prefix);
+    player_skill_e GetSkillFromId(unsigned int skill_id);
+    bool SaveConfig(CSimpleIniA* ini, const std::string& path);
+
+    unsigned int settingsSkillCaps[kSkillCount];
+    unsigned int settingsSkillFormulaCaps[kSkillCount];
 
   public:
     Settings();
     bool ReadConfig(const std::string& path);
-    bool SaveConfig(CSimpleIniA* ini, const std::string& path);
 
-    SettingsGeneral                settingsGeneral;
-    SettingsLegendarySkill        settingsLegendarySkill;
-    SettingList<UInt32>            settingsSkillCaps;
-    SettingList<UInt32>            settingsSkillFormulaCaps;
+    float GetSkillCap(unsigned int skill_id);
+    float GetSkillFormulaCap(unsigned int skill_id);
+
+    struct {
+        UInt32 version;
+        std::string author;
+    } settingsGeneral;
+
+    struct {
+        bool bLegendaryKeepSkillLevel;
+        bool bHideLegendaryButton;
+        UInt32 iSkillLevelEnableLegendary;
+        UInt32 iSkillLevelAfterLegendary;
+    } settingsLegendarySkill;
+
     SettingList<float>            settingsSkillExpGainMults;
     SettingList<float>            settingsLevelSkillExpMults;
     SettingList<float>            settingsPerksAtLevelUp;
@@ -225,10 +225,10 @@ class Settings {
     SettingList<UInt32>            settingsCarryWeightAtHealthLevelUp;
     SettingList<UInt32>            settingsCarryWeightAtMagickaLevelUp;
     SettingList<UInt32>            settingsCarryWeightAtStaminaLevelUp;
-    SettingList<float>            settingsSkillExpGainMultsWithSkills[kNumAdvanceableSkills];
-    SettingList<float>            settingsSkillExpGainMultsWithPCLevel[kNumAdvanceableSkills];
-    SettingList<float>            settingsLevelSkillExpMultsWithSkills[kNumAdvanceableSkills];
-    SettingList<float>            settingsLevelSkillExpMultsWithPCLevel[kNumAdvanceableSkills];
+    SettingList<float>            settingsSkillExpGainMultsWithSkills[kSkillCount];
+    SettingList<float>            settingsSkillExpGainMultsWithPCLevel[kSkillCount];
+    SettingList<float>            settingsLevelSkillExpMultsWithSkills[kSkillCount];
+    SettingList<float>            settingsLevelSkillExpMultsWithPCLevel[kSkillCount];
 };
 
 extern Settings settings;
