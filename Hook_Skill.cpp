@@ -6,7 +6,7 @@
 #include "BranchTrampoline.h"
 #include "SafeWrite.h"
 #include "xbyak.h"
-#include "RVA.h"
+#include "reg2k/RVA.h"
 
 using LevelData = PlayerSkills::StatData::LevelData;
 

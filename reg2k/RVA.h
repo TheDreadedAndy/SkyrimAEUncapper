@@ -26,7 +26,7 @@
 
 // Me was here. Vandalized everything. No more runtimeVersion only signatures.
 
-#define SHOW_ADDR					2
+#define SHOW_ADDR                    2
 #define GET_RVA(relocPtr) relocPtr.GetUIntPtr() - RelocationManager::s_baseAddr
 // 0 - Default - use addresses for the runtime version first, and sigscan if the addresses for the runtime version are not available. No logging.
 // 1 - Always do sigscan and print address to log even if an address is present for the runtime version.
@@ -37,7 +37,7 @@
 //------------------------
 namespace RVAUtils
 {
-	inline bool ReadMemory(uintptr_t addr, void* data, size_t len);
+    inline bool ReadMemory(uintptr_t addr, void* data, size_t len);
 }
 
 //------------------------
@@ -47,11 +47,11 @@ namespace RVAUtils
 struct RVAData
 {
     const char* name;
-	const char*								sig = nullptr;     // Signature
-	uintptr_t								effectiveAddress = 0;
-	int										offset = 0;
-	int										indirectOffset = 0;
-	int										instructionLength = 0;
+    const char*                                sig = nullptr;     // Signature
+    uintptr_t                                effectiveAddress = 0;
+    int                                        offset = 0;
+    int                                        indirectOffset = 0;
+    int                                        instructionLength = 0;
 };
 
 //------------------------
@@ -60,23 +60,23 @@ struct RVAData
 
 namespace RVAUtils
 {
-	class Timer
-	{
-	public:
-		Timer()
-		{
-			QueryPerformanceCounter(&countStart);
-			QueryPerformanceFrequency(&frequency);
-		}
-		~Timer()
-		{
-			QueryPerformanceCounter(&countEnd);
-			_MESSAGE(">> sigscan time elapsed: %llu ms...", (countEnd.QuadPart - countStart.QuadPart) / (frequency.QuadPart / 1000));
-		}
+    class Timer
+    {
+    public:
+        Timer()
+        {
+            QueryPerformanceCounter(&countStart);
+            QueryPerformanceFrequency(&frequency);
+        }
+        ~Timer()
+        {
+            QueryPerformanceCounter(&countEnd);
+            _MESSAGE(">> sigscan time elapsed: %llu ms...", (countEnd.QuadPart - countStart.QuadPart) / (frequency.QuadPart / 1000));
+        }
 
-	private:
-		LARGE_INTEGER countStart, countEnd, frequency;
-	};
+    private:
+        LARGE_INTEGER countStart, countEnd, frequency;
+    };
 }
 
 //------------------------
@@ -115,16 +115,16 @@ public:
     }
 
     /*static uintptr_t GetEffectiveAddress(uintptr_t rva) {
-		return RelocationManager::s_baseAddr + rva;
+        return RelocationManager::s_baseAddr + rva;
     }*/
 
-	static void Add(std::shared_ptr<RVAData> data) {
-		m_rvaDataVec().push_back(data);
-	}
+    static void Add(std::shared_ptr<RVAData> data) {
+        m_rvaDataVec().push_back(data);
+    }
 
 private:
-	using RVADataVec = std::vector<std::shared_ptr<RVAData>>;
-	static RVADataVec& m_rvaDataVec() { static RVADataVec v; return v; }
+    using RVADataVec = std::vector<std::shared_ptr<RVAData>>;
+    static RVADataVec& m_rvaDataVec() { static RVADataVec v; return v; }
 };
 
 //------------------------
@@ -139,68 +139,68 @@ public:
         init(name, sig, offset, indirectOffset, instructionLength);
     }
 
-	// Default constructor (empty)
-	RVAScan()
-	{
-		// do nothing
-	}
+    // Default constructor (empty)
+    RVAScan()
+    {
+        // do nothing
+    }
 
-	T& operator* ()
-	{
-		return *GetPtr();
-	}
+    T& operator* ()
+    {
+        return *GetPtr();
+    }
 
-	operator T()
-	{
-		return reinterpret_cast<T>(data->effectiveAddress);
-	}
+    operator T()
+    {
+        return reinterpret_cast<T>(data->effectiveAddress);
+    }
 
-	T* operator->() const
-	{
-		return GetPtr();
-	}
+    T* operator->() const
+    {
+        return GetPtr();
+    }
 
-	T* GetPtr() const
-	{
-		return reinterpret_cast<T*>(data->effectiveAddress);
-	}
+    T* GetPtr() const
+    {
+        return reinterpret_cast<T*>(data->effectiveAddress);
+    }
 
-	const T * GetConst() const
-	{
-		return reinterpret_cast<T*>(data->effectiveAddress);
-	}
+    const T * GetConst() const
+    {
+        return reinterpret_cast<T*>(data->effectiveAddress);
+    }
 
-	uintptr_t GetUIntPtr() const
-	{
-		return data->effectiveAddress;
-	}
+    uintptr_t GetUIntPtr() const
+    {
+        return data->effectiveAddress;
+    }
 
-	bool IsResolved() const {
-		return (data->effectiveAddress != NULL);
-	}
+    bool IsResolved() const {
+        return (data->effectiveAddress != NULL);
+    }
 
     void Resolve() {
         if (!IsResolved()) RVAManager::UpdateSingle(data);
-	}
+    }
 
     /*void SetEffective(uintptr_t ea) {
-		data->effectiveAddress = ea;
+        data->effectiveAddress = ea;
     }*/
 
 private:
-	std::shared_ptr<RVAData> data;
+    std::shared_ptr<RVAData> data;
 
     void init(const char* name, const char* sig, int offset, int indirectOffset = 0, int instructionLength = 0)
-	{
-		data = std::make_shared<RVAData>();
+    {
+        data = std::make_shared<RVAData>();
         data->name = name;
-		data->sig = sig;
-		data->offset = offset;
-		data->indirectOffset = indirectOffset;
-		data->instructionLength = instructionLength;
+        data->sig = sig;
+        data->offset = offset;
+        data->indirectOffset = indirectOffset;
+        data->instructionLength = instructionLength;
 
         RVAManager::UpdateSingle(data);
-	}
+    }
 };
 
 //--------------------
@@ -209,15 +209,15 @@ private:
 
 namespace RVAUtils
 {
-	inline bool ReadMemory(uintptr_t addr, void* data, size_t len)
-	{
-		UInt32 oldProtect;
-		if (VirtualProtect((void *)addr, len, PAGE_EXECUTE_READWRITE, &oldProtect))
-		{
-			memcpy(data, (void*)addr, len);
-			if (VirtualProtect((void *)addr, len, oldProtect, &oldProtect))
-				return true;
-		}
-		return false;
-	}
+    inline bool ReadMemory(uintptr_t addr, void* data, size_t len)
+    {
+        UInt32 oldProtect;
+        if (VirtualProtect((void *)addr, len, PAGE_EXECUTE_READWRITE, &oldProtect))
+        {
+            memcpy(data, (void*)addr, len);
+            if (VirtualProtect((void *)addr, len, oldProtect, &oldProtect))
+                return true;
+        }
+        return false;
+    }
 }
