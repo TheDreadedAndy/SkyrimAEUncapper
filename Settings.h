@@ -331,7 +331,7 @@ class Settings {
     float GetLevelSkillExpMult(unsigned int skill_id, unsigned int skill_level,
                                unsigned int player_level);
     void GetAttributeLevelUp(unsigned int player_level, player_attr_e attr,
-                             UInt32 &attr_up, UInt32 &carry_up);
+                             UInt32 &attr_up, float &carry_up);
 
     struct {
         UInt32 version;

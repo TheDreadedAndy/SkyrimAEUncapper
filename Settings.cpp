@@ -456,22 +456,26 @@ Settings::GetAttributeLevelUp(
     unsigned int player_level,
     player_attr_e attr,
     UInt32 &attr_up,
-    UInt32 &carry_up
+    float &carry_up
 ) {
     ASSERT((attr == ATTR_HEALTH) || (attr == ATTR_MAGICKA) || (attr == ATTR_STAMINA));
 
+    UInt32 a_up = 0, c_up = 0;
     switch (attr) {
         case ATTR_HEALTH:
-            attr_up = settingsHealthAtLevelUp.GetNearest(player_level);
-            carry_up = settingsCarryWeightAtHealthLevelUp.GetNearest(player_level);
+            a_up = settingsHealthAtLevelUp.GetNearest(player_level);
+            c_up = settingsCarryWeightAtHealthLevelUp.GetNearest(player_level);
             break;
         case ATTR_MAGICKA:
-            attr_up = settingsMagickaAtLevelUp.GetNearest(player_level);
-            carry_up = settingsCarryWeightAtMagickaLevelUp.GetNearest(player_level);
+            a_up = settingsMagickaAtLevelUp.GetNearest(player_level);
+            c_up = settingsCarryWeightAtMagickaLevelUp.GetNearest(player_level);
             break;
         case ATTR_STAMINA:
-            attr_up = settingsStaminaAtLevelUp.GetNearest(player_level);
-            carry_up = settingsCarryWeightAtStaminaLevelUp.GetNearest(player_level);
+            a_up = settingsStaminaAtLevelUp.GetNearest(player_level);
+            c_up = settingsCarryWeightAtStaminaLevelUp.GetNearest(player_level);
             break;
     }
+
+    attr_up = a_up;
+    carry_up = static_cast<float>(c_up);
 }

@@ -200,47 +200,24 @@ float ImproveLevelExpBySkillLevel_Hook(float exp, UInt32 skillID)
 
 UInt64 ImproveAttributeWhenLevelUp_Hook(void* unk0, UInt8 unk1)
 {
-    enum
-    {
-        kHealth = 0x18,
-        kMagicka,
-        kStamina
-    };
 
     Setting * iAVDhmsLevelUp = (*g_gameSettingCollection)->Get("iAVDhmsLevelUp");
     Setting * fLevelUpCarryWeightMod = (*g_gameSettingCollection)->Get("fLevelUpCarryWeightMod");
-    if (iAVDhmsLevelUp && fLevelUpCarryWeightMod) [[likely]]
-    {
-        UInt32 choice = *reinterpret_cast<UInt32*>(static_cast<char*>(unk0) + 0x18);
-        UInt16 level = GetLevel(*g_thePlayer);
 
-        switch (choice)
-        {
-        case kHealth:
-        {
-            iAVDhmsLevelUp->data.u32 = settings.settingsHealthAtLevelUp.GetValue(level);
-            fLevelUpCarryWeightMod->data.f32 = settings.settingsCarryWeightAtHealthLevelUp.GetValue(level);
-            break;
-        }
-        case kMagicka:
-        {
-            iAVDhmsLevelUp->data.u32 = settings.settingsMagickaAtLevelUp.GetValue(level);
-            fLevelUpCarryWeightMod->data.f32 = settings.settingsCarryWeightAtMagickaLevelUp.GetValue(level);
-            break;
-        }
-        case kStamina:
-        {
-            iAVDhmsLevelUp->data.u32 = settings.settingsStaminaAtLevelUp.GetValue(level);
-            fLevelUpCarryWeightMod->data.f32 = settings.settingsCarryWeightAtStaminaLevelUp.GetValue(level);
-            break;
-        }
-        default:
-        {
-            iAVDhmsLevelUp->data.u32 = 5;
-            fLevelUpCarryWeightMod->data.f32 = 10.0f;
-        }
-        }
-    }
+    ASSERT(iAVDhmsLevelUp);
+    ASSERT(fLevelUpCarryWeightMod);
+
+    unsigned int level = GetLevel(*g_thePlayer);
+    Settings::player_attr_e choice =
+        *reinterpret_cast<Settings::player_attr_e*>(static_cast<char*>(unk0) + 0x18);
+
+    settings.GetAttributeLevelUp(
+        level,
+        choice,
+        iAVDhmsLevelUp->data.u32,
+        fLevelUpCarryWeightMod->data.f32
+    );
+
     return ImproveAttributeWhenLevelUp_Original(unk0, unk1);
 }
 
@@ -377,43 +354,16 @@ void InitRVA()
        1408f6794 c3              RET
 */
 
-    //kHook_SkillCapPatch_Ent                    = RVAScan<uintptr_t *>(GET_RVA(kHook_SkillCapPatch_Ent), "48 81 C1 B0 00 00 00 41 0F 29 73 D8 45 0F 29 43 B8 48 8B 01 FF 50 18 F3 44 0F 10 ? ? ? ? 00 0F 28 F0 41 0F 2F F0 0F 83 74 02 00 00 48 8D 44 24 3C", 0x17);
-    kHook_SkillCapPatch_Ent                    = RVAScan<uintptr_t *>(GET_RVA(kHook_SkillCapPatch_Ent), "48 8B 0D ? ? ? ? 48 81 C1 B8 00 00 00 48 8B 01 FF 50 18 44 0F 28 C0", 0x18);
+    kHook_SkillCapPatch_Ent = RVAScan<uintptr_t *>(
+        GET_RVA(kHook_SkillCapPatch_Ent),
+        kSkillCapPatchSig,
+        kSkillCapPatchSigOffset
+    );
     kHook_SkillCapPatch_Ret                    = kHook_SkillCapPatch_Ent;
     kHook_SkillCapPatch_Ret                    += 5;
-/* Request for compatibility with https://www.nexusmods.com/skyrimspecialedition/mods/17751
-Hey, I used to hook just after Uncapper's hook to push its new skill cap as hardcap of my own cap (sounds confusing I know) for the purpose of my Experience mod, but now in AE version I'm missing two bytes between your hook and next instruction:
-.text:000000014070EC86                 movss   xmm10, cs:dword_14161AF50 ; uncapper enter
-.text:000000014070EC8F                 comiss  xmm0, xmm10     ; uncapper exit | my enter (need 6 bytes, have 4)
-.text:000000014070EC93                 jnb     loc_14070EF71   ; my exit
-Would you mind adjusting your hook, so it fills all unused bytes of first instruction with NOPs and returns here (on NOPs) so I can override two last NOPs + second instruction with my usual hook?*/
-/*
-fVar14 == XMM10 = 100.0(maximum)
-fVar8 == XMM0 < 100.0(current)
-COMISS     XMM0,XMM10 current < maximum
-void FUN_14070ec10(undefined8 param_1,undefined8 param_2,float param_3,float **param_4,
-                  int param_5_00,undefined8 param_6_00,undefined8 param_7_00,undefined4 param_5,
-                  char param_6,char param_7)
 
-       14070ec75 48 81 c1        ADD        param_1,0xb0
-                 b0 00 00 00
-       14070ec7c 48 8b 01        MOV        RAX,qword ptr [param_1]
-       14070ec7f ff 50 18        CALL       qword ptr [RAX + 0x18]
-       14070ec82 44 0f 28 c0     MOVAPS     XMM8,XMM0
-       14070ec86 f3 44 0f        MOVSS      XMM10,dword ptr [DAT_14161af50] = 42C80000h 100.0 kHook_SkillCapPatch_Ent
-                 10 15 c1   kHook_SkillCapPatch_Ret
-                 c2 f0 00
-       14070ec8f 41 0f 2f c2     COMISS     XMM0,XMM10
-       14070ec93 0f 83 d8        JNC        LAB_14070ef71
-                 02 00 00
-       14070ec99 f3 0f 10        MOVSS      XMM7,dword ptr [DAT_14161d3b8]                   = 3F800000h 1.0
-                 3d 17 e7
-                 f0 00
-       14070eca1 c7 44 24        MOV        dword ptr [RSP + local_178],0x3f800000
-                 30 00 00
-                 80 3f
-*/
-    /*kHook_ExecuteLegendarySkill_Ent            = RVAScan<uintptr_t *>(GET_RVA(kHook_ExecuteLegendarySkill_Ent), "0F 82 85 00 00 00 48 8B 0D ? ? ? ? 48 81 C1 B0 00 00 00 48 8B 01 F3 0F 10 15 ? ? ? ? 8B 56 1C FF 50 20 48 8B 05 ? ? ? ? 8B 56 1C 48 8B 88 B0 09 00 00");
+#if 0
+    kHook_ExecuteLegendarySkill_Ent            = RVAScan<uintptr_t *>(GET_RVA(kHook_ExecuteLegendarySkill_Ent), "0F 82 85 00 00 00 48 8B 0D ? ? ? ? 48 81 C1 B0 00 00 00 48 8B 01 F3 0F 10 15 ? ? ? ? 8B 56 1C FF 50 20 48 8B 05 ? ? ? ? 8B 56 1C 48 8B 88 B0 09 00 00");
     kHook_ExecuteLegendarySkill_Ret            = kHook_ExecuteLegendarySkill_Ent;
     kHook_ExecuteLegendarySkill_Ret            += 6;
 
@@ -423,7 +373,8 @@ void FUN_14070ec10(undefined8 param_1,undefined8 param_2,float param_3,float **p
 
     kHook_HideLegendaryButton_Ent            = RVAScan<uintptr_t *>(GET_RVA(kHook_HideLegendaryButton_Ent), "48 8B 0D ? ? ? ? 48 81 C1 B0 00 00 00 48 8B 01 8B D6 FF 50 18 0F 2F 05 ? ? ? ? 72 64 48 8D 05 ? ? ? ? 48 89 85 C0 00 00 00 4C 89 64 24 20");
     kHook_HideLegendaryButton_Ret            = kHook_HideLegendaryButton_Ent;
-    kHook_HideLegendaryButton_Ret            += 0x1D;*/
+    kHook_HideLegendaryButton_Ret            += 0x1D;
+#endif
 
     //ImproveSkillLevel_Hook            = RVAScan<_ImproveSkillLevel>(GET_RVA(ImproveSkillLevel_Hook), "48 8B 89 B0 09 00 00 B8 01 00 00 00 44 3B C0 44 0F 42 C0 E9", (0x14070ee08-0x1406ca9b0));
     ImproveSkillLevel_Hook = RVAScan<_ImproveSkillLevel>(GET_RVA(ImproveSkillLevel_Hook), "F3 0F 10 54 9F 10 41 3B F4 F3 0F 5C 54 9F 0C 0F 92 C0 8B D5 88 44 24 30 45 33 C9 44 88 6C 24 28 49 8B CF 44 89 6C 24 20 E8 73 FB FF FF FF C6 41 3B F6 72 CC", (0x14070ee08-0x14070ede0));
