@@ -15,58 +15,62 @@
 /**
  * @brief Reads the given section of the given INI into the given MAP.
  * @param INI The INI to read from.
- * @param MAP The SettingList to load the data into.
+ * @param LIST The LeveledSetting to load the data into.
  * @param SECTION The section of the INI to read.
  * @param DEFAULT The value to use if a key does not have one.
  * @param CONV The function to use to convert the value to the map type.
  */
-#define ReadLevelListSection(INI, MAP, SECTION, DEFAULT, CONV)\
+#define ReadLevelListSection(INI, LIST, SECTION, DEFAULT, CONV)\
 do {\
     CSimpleIniA::TNamesDepend _keys;\
     \
     if (ini.GetAllKeys(SECTION, _keys)) {\
         for (auto& _element : _keys) {\
-            (MAP).insert({\
+            (LIST).Add(\
                 atoi(_element.pItem),\
                 CONV##(ini.GetValue(SECTION, _element.pItem, #DEFAULT))\
-            });\
+            );\
         }\
     }\
     \
-    (MAP).insert({ 1, DEFAULT });\
+    (LIST).Add(1, DEFAULT);\
 } while (0)
 
-#define ReadFloatLevelListSection(INI, MAP, SECTION, DEFAULT)\
-    ReadLevelListSection(INI, MAP, SECTION, DEFAULT, atof)
-#define ReadIntLevelListSection(INI, MAP, SECTION, DEFAULT)\
-    ReadLevelListSection(INI, MAP, SECTION, DEFAULT, atoi)
+#define ReadFloatLevelListSection(INI, LIST, SECTION, DEFAULT)\
+    ReadLevelListSection(INI, LIST, SECTION, DEFAULT, atof)
+#define ReadIntLevelListSection(INI, LIST, SECTION, DEFAULT)\
+    ReadLevelListSection(INI, LIST, SECTION, DEFAULT, atoi)
 
 /**
  * @brief Saves the given float-value list to the given section of the INI.
  * @param INI The ini file to save to.
- * @param MAP The SettingList to be saved.
+ * @param LIST The LeveledSetting to be saved.
  * @param SECTION The section to save the list to.
  * @param COMMENT The comment expression to be applied to each entry.
  */
-#define SaveFloatLevelListSection(INI, MAP, SECTION, COMMENT)\
+#define SaveFloatLevelListSection(INI, LIST, SECTION, COMMENT)\
 do {\
-    for (const auto &_pair : MAP) {\
+    LevelItem level;\
+    for (size_t i = 0; i < (LIST).Size(); i++) {\
+        (LIST).GetItem(i, level);\
         char _key[16];\
-        sprintf_s(_key, "%d", _pair.first);\
-        IniSetValueFloat(INI, SECTION, _key, _pair.second, (_pair.first == 1) ? (COMMENT) : NULL);\
+        sprintf_s(_key, "%d", level.level);\
+        IniSetValueFloat(INI, SECTION, _key, level.item, (level.level == 1) ? (COMMENT) : NULL);\
     }\
 } while (0)
 
-#define SaveIntLevelListSection(INI, MAP, SECTION, COMMENT)\
+#define SaveIntLevelListSection(INI, LIST, SECTION, COMMENT)\
 do {\
-    for (const auto &_pair : MAP) {\
+    LevelItem level;\
+    for (size_t i = 0; i < (LIST).Size(); i++) {\
+        (LIST).GetItem(i, level);\
         char _key[16];\
-        sprintf_s(_key, "%d", _pair.first);\
-        (INI).SetValueLong(SECTION, _key, _pair.second, (_pair.first == 1) ? (COMMENT) : NULL);\
+        sprintf_s(_key, "%d", level.level);\
+        (INI).SetValueLong(SECTION, _key, level.item, (level.level == 1) ? (COMMENT) : NULL);\
     }\
 } while (0)
 
-/// @brief Global settings manager, used throughout plugin.
+/// @brief Global settings manager, used throughout this plugin.
 Settings settings;
 
 /**
@@ -325,16 +329,8 @@ Settings::ReadConfig(
 
         /* Load EXP multipliers */
         GetSkillStr(skill_buf, skill_buf_size, i, "f");
-
-        settingsSkillExpGainMults.insert({
-            i,
-            atof(ini.GetValue("SkillExpGainMults", skill_buf, "1.00"))
-        });
-
-        settingsLevelSkillExpMults.insert({
-            i,
-            atof(ini.GetValue("LevelSkillExpMults", skill_buf, "1.00"))
-        });
+        settingsSkillExpGainMults[i] = atof(ini.GetValue("SkillExpGainMults", skill_buf, "1.00"));
+        settingsLevelSkillExpMults[i] = atof(ini.GetValue("LevelSkillExpMults", skill_buf, "1.00"));
 
         GetSkillStr(skill_buf, skill_buf_size, i, "SkillExpGainMults\\CharacterLevel\\");
         ReadFloatLevelListSection(ini, settingsSkillExpGainMultsWithPCLevel[i], skill_buf, 1.00);
@@ -394,4 +390,88 @@ Settings::GetSkillFormulaCap(
     unsigned int skill_id
 ) {
     return settingsSkillFormulaCaps[GetSkillFromId(skill_id)];
+}
+
+/**
+ * @brief Gets the number of perk points the player should be given for reaching
+ *        the given level.
+ */
+unsigned int
+Settings::GetPerkDelta(
+    unsigned int player_level
+) {
+    return settingsPerksAtLevelUp.GetCumulativeDelta(player_level);
+}
+
+/**
+ * @brief Calculates the skill exp gain multiplier.
+ * @param skill_id The ID of the skill which is gaining exp.
+ * @param skill_level The level of the skill.
+ * @param player_level The level of the player.
+ * @return The multiplier.
+ */
+float
+Settings::GetSkillExpGainMult(
+    unsigned int skill_id,
+    unsigned int skill_level,
+    unsigned int player_level
+) {
+    player_skill_e skill = GetSkillFromId(skill_id);
+    float base_mult = settingsSkillExpGainMults[skill];
+    float skill_mult = settingsSkillExpGainMultsWithSkills[skill].GetNearest(skill_level);
+    float pc_mult = settingsSkillExpGainMultsWithPCLevel[skill].GetNearest(player_level);
+    return base_mult * skill_mult * pc_mult;
+}
+
+/**
+ * @brief Calculates the level-up exp multiplier.
+ * @param skill_id The ID of the skill which is gaining exp.
+ * @param skill_level The level of the skill.
+ * @param player_level The level of the player.
+ * @return The multiplier.
+ */
+float
+Settings::GetLevelSkillExpMult(
+    unsigned int skill_id,
+    unsigned int skill_level,
+    unsigned int player_level
+) {
+    player_skill_e skill = GetSkillFromId(skill_id);
+    float base_mult = settingsLevelSkillExpMults[skill];
+    float skill_mult = settingsLevelSkillExpMultsWithSkills[skill].GetNearest(skill_level);
+    float pc_mult = settingsLevelSkillExpMultsWithPCLevel[skill].GetNearest(player_level);
+    return base_mult * skill_mult * pc_mult;
+}
+
+/**
+ * @brief Calculates the attribute increase from the given player level and
+ *        selection.
+ * @param player_level The level of the player.
+ * @param attr The attribute the player selected to level.
+ * @param attr_up The returned increase to that attribute.
+ * @param carry_up The returned increase to carry weight.
+ */
+void
+Settings::GetAttributeLevelUp(
+    unsigned int player_level,
+    player_attr_e attr,
+    UInt32 &attr_up,
+    UInt32 &carry_up
+) {
+    ASSERT((attr == ATTR_HEALTH) || (attr == ATTR_MAGICKA) || (attr == ATTR_STAMINA));
+
+    switch (attr) {
+        case ATTR_HEALTH:
+            attr_up = settingsHealthAtLevelUp.GetNearest(player_level);
+            carry_up = settingsCarryWeightAtHealthLevelUp.GetNearest(player_level);
+            break;
+        case ATTR_MAGICKA:
+            attr_up = settingsMagickaAtLevelUp.GetNearest(player_level);
+            carry_up = settingsCarryWeightAtMagickaLevelUp.GetNearest(player_level);
+            break;
+        case ATTR_STAMINA:
+            attr_up = settingsStaminaAtLevelUp.GetNearest(player_level);
+            carry_up = settingsCarryWeightAtStaminaLevelUp.GetNearest(player_level);
+            break;
+    }
 }

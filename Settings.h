@@ -1,3 +1,13 @@
+/**
+ * @file Settings.h
+ * @brief Defines the class which is used to load and interact with the settings
+ *        specified by the player in the INI file.
+ * @author Kassant.
+ *
+ * Rampaged through by Kasplat to change the interface/encapsulation to be
+ * more clear.
+ */
+
 #pragma once
 
 #include "SimpleIni.h"
@@ -7,52 +17,140 @@
 
 #define CONFIG_VERSION 4
 
-// FIXME: What the flying fuck is this doing? ~Kasplat
 template<typename T>
-struct SettingList : public std::map < UInt32, T>
-{
-    typename SettingList::mapped_type GetValue(const typename SettingList::key_type& index)
-    {
-        typename SettingList::mapped_type result = NULL;
-        for (auto it = rbegin(); it != rend(); ++it)
-        {
-            if (it->first <= index)
-            {
-                result = it->second;
-                break;
+class LeveledSetting {
+  private:
+    std::vector<LevelItem> list;
+
+  public:
+    struct LevelItem {
+        unsigned int level;
+        T item;
+    };
+
+    /**
+     * @brief Adds an item to the leveled setting list.
+     *
+     * The given level must not already be within the list.
+     *
+     * @param level The level for the item.
+     * @param item The item to be added.
+     */
+    void
+    Add(
+        unsigned int level,
+        T item
+    ) {
+        // Store the items in sorted order, so we can binary search for the
+        // nearest later.
+        size_t lo = 0, hi = list.size() - 1;
+        size_t mid = lo + ((hi - lo) >> 1);
+        while (lo < hi) {
+            if (level < list[mid].level) {
+                hi = mid;
+            } else {
+                ASSERT(level > list[mid].level);
+                lo = mid;
             }
+
+            mid = lo + ((hi - lo) >> 1);
         }
-        return result;
+
+        // Insert before the final hi element.
+        list.insert(list.begin() + hi, { level, item });
     }
 
-    float GetDecimal(const typename SettingList::key_type& index)
-    {
-        float decimal = 0.00f;
-        for (auto iterator = rbegin(); iterator != rend(); ++iterator)
-        {
-            if (iterator->first < index)
-            {
-                if (iterator != --rend())
-                {
-                    decimal += (index - iterator->first) * (iterator->second);
-                    auto it = iterator;
-                    ++it;
-                    for (; it != rend(); ++it)
-                    {
-                        auto nextIterator = it;
-                        --nextIterator;
-                        if (it != --rend())
-                            decimal += (nextIterator->first - it->first) * (it->second);
-                        else
-                            decimal += (nextIterator->first - it->first - 1) * (it->second);
-                    }
-                }
-                else
-                    decimal += (index - iterator->first - 1) * (iterator->second);
-                break;
+    /**
+     * @brief Finds the value closest to the given level in the list.
+     *
+     * Note that only values whose level is less than or equal to the given
+     * level will be considered.
+     *
+     * @param level The level to search for an item for.
+     * @return The associated value.
+     */
+    T
+    GetNearest(
+        unsigned int level
+    ) {
+        ASSERT(list.size() > 0);
+
+        size_t lo = 0, hi = list.size() - 1;
+        size_t mid = lo + ((hi - lo) >> 1);
+        while (lo < hi) {
+            if (level < list[mid].level) {
+                hi = mid;
+            } else if (level > list[mid].level) {
+                lo = mid;
+            } else {
+                return list[mid].item;
+            }
+
+            mid = lo + ((hi - lo) >> 1);
+        }
+
+        // If no direct match was found, return the closest lo item.
+        return list[lo].item;
+    }
+
+    /**
+     * @brief Accumulates the values across all previous levels, and determines
+     *        what the increment from the last level was.
+     *
+     * This function is intended to be used for the calculation of partial
+     * perk point awards.
+     *
+     * @param level The level to calculate the delta to.
+     * @return The increment from the previous level.
+     */
+    unsigned int
+    GetCumulativeDelta(
+        unsigned int level
+    ) {
+        ASSERT(list.size() > 0);
+
+        size_t plevel = 0;
+        T pacc = 0, acc = 0;
+        for (size_t i = 0; (list[i].level <= level) && (i < list.size()); i++) {
+            // Update the accumulation.
+            unsigned int this_level = (level < list[i].level) ? level : list[i].level;
+            acc += (this_level - plevel) * list[i].item;
+
+            // If this is the last iteration, get the previous accumulation.
+            if (((i + 1) >= list.size()) || (list[i].level > level)) {
+                pacc = acc - list[i].item;
             }
         }
-        return decimal - static_cast<UInt32>(decimal);
+
+        return static_cast<unsigned int>(acc) - static_cast<unsigned int>(pacc);
+    }
+
+    /**
+     * @brief Shrinks the underlying vector to fit its contents.
+     */
+    void
+    Finalize() {
+        list.shrink_to_fit();
+    }
+
+    /**
+     * @brief Gets the number of level sections in the list.
+     */
+    size_t
+    Size() {
+        return list.size();
+    }
+
+    /**
+     * @brief Gets the LevelItem at the given index.
+     */
+    void
+    GetItem(
+        size_t i,
+        LevelItem &ret
+    ) {
+        ASSERT(i < list.size());
+        ret = list[i];
     }
 };
 
@@ -177,8 +275,8 @@ class Settings {
     static const char *const kHideLegendaryButtonDesc =
         "# This option determines whether to hide the legendary button in "
         "StatsMenu when you meet the requirements of legendary skills. "
-        "If you set \"iSkillLevelEnableLegendary\" to below 100, the lengedary "
-        "button will not show up, but you can make skills lengedary normally "
+        "If you set \"iSkillLevelEnableLegendary\" to below 100, the legendary "
+        "button will not show up, but you can make skills legendary normally "
         "by pressing SPACE.";
     static const char *const kSkillLevelEnableLegendaryDesc =
         "# This option determines the skill level required to make a skill "
@@ -197,12 +295,43 @@ class Settings {
     unsigned int settingsSkillCaps[kSkillCount];
     unsigned int settingsSkillFormulaCaps[kSkillCount];
 
+    LeveledSetting<float>  settingsPerksAtLevelUp;
+
+    float                  settingsSkillExpGainMults[kSkillCount];
+    LeveledSetting<float>  settingsSkillExpGainMultsWithSkills[kSkillCount];
+    LeveledSetting<float>  settingsSkillExpGainMultsWithPCLevel[kSkillCount];
+
+    float                  settingsLevelSkillExpMults[kSkillCount];
+    LeveledSetting<float>  settingsLevelSkillExpMultsWithSkills[kSkillCount];
+    LeveledSetting<float>  settingsLevelSkillExpMultsWithPCLevel[kSkillCount];
+
+    LeveledSetting<UInt32> settingsHealthAtLevelUp;
+    LeveledSetting<UInt32> settingsMagickaAtLevelUp;
+    LeveledSetting<UInt32> settingsStaminaAtLevelUp;
+    LeveledSetting<UInt32> settingsCarryWeightAtHealthLevelUp;
+    LeveledSetting<UInt32> settingsCarryWeightAtMagickaLevelUp;
+    LeveledSetting<UInt32> settingsCarryWeightAtStaminaLevelUp;
+
   public:
+    /// @brief Encodes the attribute selection during level-up.
+    typedef enum {
+        ATTR_HEALTH = 0x18,
+        ATTR_MAGICKA,
+        ATTR_STAMINA
+    } player_attr_e;
+
     Settings();
     bool ReadConfig(const std::string& path);
 
     float GetSkillCap(unsigned int skill_id);
     float GetSkillFormulaCap(unsigned int skill_id);
+    unsigned int GetPerkDelta(unsigned int player_level);
+    float GetSkillExpGainMult(unsigned int skill_id, unsigned int skill_level,
+                              unsigned int player_level);
+    float GetLevelSkillExpMult(unsigned int skill_id, unsigned int skill_level,
+                               unsigned int player_level);
+    void GetAttributeLevelUp(unsigned int player_level, player_attr_e attr,
+                             UInt32 &attr_up, UInt32 &carry_up);
 
     struct {
         UInt32 version;
@@ -215,20 +344,6 @@ class Settings {
         UInt32 iSkillLevelEnableLegendary;
         UInt32 iSkillLevelAfterLegendary;
     } settingsLegendarySkill;
-
-    SettingList<float>            settingsSkillExpGainMults;
-    SettingList<float>            settingsLevelSkillExpMults;
-    SettingList<float>            settingsPerksAtLevelUp;
-    SettingList<UInt32>            settingsHealthAtLevelUp;
-    SettingList<UInt32>            settingsMagickaAtLevelUp;
-    SettingList<UInt32>            settingsStaminaAtLevelUp;
-    SettingList<UInt32>            settingsCarryWeightAtHealthLevelUp;
-    SettingList<UInt32>            settingsCarryWeightAtMagickaLevelUp;
-    SettingList<UInt32>            settingsCarryWeightAtStaminaLevelUp;
-    SettingList<float>            settingsSkillExpGainMultsWithSkills[kSkillCount];
-    SettingList<float>            settingsSkillExpGainMultsWithPCLevel[kSkillCount];
-    SettingList<float>            settingsLevelSkillExpMultsWithSkills[kSkillCount];
-    SettingList<float>            settingsLevelSkillExpMultsWithPCLevel[kSkillCount];
 };
 
 extern Settings settings;
