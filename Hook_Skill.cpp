@@ -7,8 +7,12 @@
 #include "SafeWrite.h"
 #include "xbyak.h"
 #include "reg2k/RVA.h"
+#include "Signatures.h"
 
 using LevelData = PlayerSkills::StatData::LevelData;
+
+#define RELOC_FROM_RVA(r) RelocAddr<uintptr_t*>((r).GetUIntPtr() - RelocationManager::s_baseAddr)
+#define RELOC_ADD(r, ofst) RelocAddr<uintptr_t*>(((r).GetUIntPtr() - RelocationManager::s_baseAddr) + ofst)
 
 RelocPtr <void*>        g_thePlayer(0x02F40458);
 
@@ -63,9 +67,6 @@ RelocAddr <_GetEffectiveSkillLevel> GetEffectiveSkillLevel(0x03E5400);    //V1.5
 
 float CalculateSkillExpForLevel(UInt32 skillID, float skillLevel)
 {
-#ifdef _DEBUG
-    _MESSAGE("function:%s, skillId:%d, skillLevel:%.2f", __FUNCTION__, skillID, skillLevel);
-#endif
     float result = 0.0f;
     float fSkillUseCurve = 1.95f;//0x01D88258;
     if ((*g_gameSettingCollection) != nullptr)
@@ -105,9 +106,7 @@ float CalculateChargePointsPerUse_Hook(float basePoints, float enchantingLevel)
 
     enchantingLevel = (enchantingLevel > 199.0f) ? 199.0f : enchantingLevel;
     float result = fEnchantingSkillCostMult * pow(basePoints, fEnchantingCostExponent) * (1.00f - pow((enchantingLevel * fEnchantingSkillCostBase), fEnchantingSkillCostScale));
-#ifdef _DEBUG
-    _MESSAGE("function:%s, basePoints:%.2f, enchantingLevel:%.2f, result:%.2f", __FUNCTION__, basePoints, enchantingLevel, result);
-#endif
+
     return result;
     //Charges Per Use = 3 * (base enchantment cost * magnitude / maximum magnitude)^1.1 * (1 - sqrt(skill/200))
 }
@@ -154,48 +153,17 @@ float CalculateChargePointsPerUse_Hook(float basePoints, float enchantingLevel)
 
 void ImprovePlayerSkillPoints_Hook(PlayerSkills* skillData, UInt32 skillID, float exp, UInt64 unk1, UInt32 unk2, UInt8 unk3, bool unk4)
 {
-    const UInt32 skillIDMinus6 = skillID - 6;
-    if (skillIDMinus6 < Settings::kNumAdvanceableSkills) [[likely]]
-    {
-#ifdef _DEBUG
-        _MESSAGE("ImprovePlayerSkillPoints_Hook, skillID: %d, SkillExpGainMults: %.2f", (int)skillID, settings.settingsSkillExpGainMults[skillIDMinus6]);
-        const float expOrig = exp;
-#endif
-        const UInt32 baseSkillLevel = static_cast<UInt32>(GetBaseActorValue((char*)(*g_thePlayer) + 0xB8, skillID));
-        const float skillMult = settings.settingsSkillExpGainMultsWithSkills[skillIDMinus6].GetValue(baseSkillLevel);
-        const UInt16 level = GetLevel(*g_thePlayer);
-        const float levelMult = settings.settingsSkillExpGainMultsWithPCLevel[skillIDMinus6].GetValue(level);
-        exp *= settings.settingsSkillExpGainMults[skillIDMinus6] * skillMult * levelMult;
-#ifdef _DEBUG
-        _MESSAGE("ImprovePlayerSkillPoints_Hook, skillID: %d, exp %.2f -> %.2f", (int)skillID, expOrig, exp);
-#endif
-    }
-#ifdef _DEBUG
-    _MESSAGE("function: %s", __FUNCTION__);
-    void* actorValue = static_cast<char*>(*g_thePlayer) + 0xB8;
-    for (size_t i = 0; i <= 8; ++i)
-        _MESSAGE("Index: %d, Function: %016I64X", i, *(*static_cast<uintptr_t**>(actorValue)+i));
-#endif
+    const UInt32 baseSkillLevel = static_cast<UInt32>(GetBaseActorValue((char*)(*g_thePlayer) + 0xB8, skillID));
+    const UInt16 level = GetLevel(*g_thePlayer);
+    exp *= settings.GetSkillExpGainMult(skillID, baseSkillLevel, level);
     ImprovePlayerSkillPoints_Original(skillData, skillID, exp, unk1, unk2, unk3, unk4);
 }
 
 float ImproveLevelExpBySkillLevel_Hook(float exp, UInt32 skillID)
 {
-    float baseMult = 1.0f, skillMult = 1.0f, levelMult = 1.0f;
-    if ((skillID >= 6) && (skillID <= 23))
-    {
-        baseMult = settings.settingsLevelSkillExpMults[skillID - 6];
-        UInt32 baseSkillLevel = static_cast<UInt32>(GetBaseActorValue((char*)(*g_thePlayer) + 0xB8, skillID));
-        skillMult = settings.settingsLevelSkillExpMultsWithSkills[skillID - 6].GetValue(baseSkillLevel);
-        UInt16 level = GetLevel(*g_thePlayer);
-        levelMult = settings.settingsLevelSkillExpMultsWithPCLevel[skillID - 6].GetValue(level);
-        //PCLevel has some minor glitch.I need to calculate player's actual level.
-    }
-    float result = exp * baseMult * skillMult * levelMult;
-#ifdef _DEBUG
-    _MESSAGE("function:%s, skillId:%d, exp:%.2f, skillMult:%.2f, levelMult:%.2f, result:%.2f", __FUNCTION__, skillID, exp, skillMult, levelMult, result);
-#endif
-    return result;
+    UInt32 baseSkillLevel = static_cast<UInt32>(GetBaseActorValue((char*)(*g_thePlayer) + 0xB8, skillID));
+    UInt16 level = GetLevel(*g_thePlayer);
+    return exp * settings.GetLevelSkillExpMult(skillID, baseSkillLevel, level);
 }
 
 UInt64 ImproveAttributeWhenLevelUp_Hook(void* unk0, UInt8 unk1)
@@ -224,21 +192,10 @@ UInt64 ImproveAttributeWhenLevelUp_Hook(void* unk0, UInt8 unk1)
 void ModifyPerkPool_Hook(SInt8 count)
 {
     UInt8* points = *reinterpret_cast<UInt8**>(g_thePlayer.GetPtr()) + 0xB09;
-    if (count > 0) //AddPerkPoints
-    {
-        //static float mantissa = 0.0f;  //This vlaue needs to be stored to cross save.
-        UInt16 level = GetLevel(*g_thePlayer);
-        float increment = settings.settingsPerksAtLevelUp.GetValue(level) + settings.settingsPerksAtLevelUp.GetDecimal(level);
-        count = static_cast<SInt8>(increment);
-        //mantissa = increment - count;
-#ifdef _DEBUG
-        _MESSAGE("function: %s, count: %d, perkPoints: %d, level: %d", __FUNCTION__, count, *points, level);
-#endif
-        UInt32 sum = count + *points;
+    if (count > 0) {//AddPerkPoints
+        UInt32 sum = settings.GetPerkDelta(GetLevel(*g_thePlayer)) + *points;
         *points = (sum > 0xFF) ? 0xFF : static_cast<UInt8>(sum);
-    }
-    else //RemovePerkPoints
-    {
+    } else { //RemovePerkPoints
         SInt32 sum = *points + count;
         *points = (sum < 0) ? 0 : static_cast<UInt8>(sum);
     }
@@ -321,9 +278,8 @@ void InitRVA()
     g_gameSettingCollection                    = RVAScan<SettingCollectionMap**>(GET_RVA(g_gameSettingCollection), "EB 02 33 FF 48 89 3D ? ? ? ? 48 8B C7 48 8B 5C ? ? 48 83 C4 30 5F C3", 4, 3, 7);
     //g_gameSettingCollection = 0x02F60000;
 
-    kHook_ModifyPerkPool_Ent                = RVAScan<uintptr_t *>(GET_RVA(kHook_ModifyPerkPool_Ent), "48 85 C0 74 ? 66 0F 6E ? 0F 5B C0 F3 0F 58 40 34 F3 0F 11 40 34 48 83 C4 20 ? C3 48 8B 15 ? ? ? ? 0F B6 8A 09 0B 00 00 8B C1 03 ? 78", 0x1C);
-    kHook_ModifyPerkPool_Ret                = kHook_ModifyPerkPool_Ent;
-    kHook_ModifyPerkPool_Ret                += 0x1D;
+    kHook_ModifyPerkPool_Ent = RELOC_FROM_RVA(RVAScan<uintptr_t *>(GET_RVA(kHook_ModifyPerkPool_Ent), "48 85 C0 74 ? 66 0F 6E ? 0F 5B C0 F3 0F 58 40 34 F3 0F 11 40 34 48 83 C4 20 ? C3 48 8B 15 ? ? ? ? 0F B6 8A 09 0B 00 00 8B C1 03 ? 78", 0x1C));
+    kHook_ModifyPerkPool_Ret = RELOC_ADD(kHook_ModifyPerkPool_Ent, 0x1D);
 /*
        1408f6756 48 85 c0        TEST       RAX,RAX
        1408f6759 74 34           JZ         LAB_1408f678f

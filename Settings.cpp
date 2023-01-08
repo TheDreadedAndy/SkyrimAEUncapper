@@ -50,7 +50,7 @@ do {\
  */
 #define SaveFloatLevelListSection(INI, LIST, SECTION, COMMENT)\
 do {\
-    LevelItem level;\
+    LeveledSetting<float>::LevelItem level;\
     for (size_t i = 0; i < (LIST).Size(); i++) {\
         (LIST).GetItem(i, level);\
         char _key[16];\
@@ -61,12 +61,14 @@ do {\
 
 #define SaveIntLevelListSection(INI, LIST, SECTION, COMMENT)\
 do {\
-    LevelItem level;\
+    LeveledSetting<UInt32>::LevelItem level;\
     for (size_t i = 0; i < (LIST).Size(); i++) {\
         (LIST).GetItem(i, level);\
         char _key[16];\
+        char _val[16];\
         sprintf_s(_key, "%d", level.level);\
-        (INI).SetValueLong(SECTION, _key, level.item, (level.level == 1) ? (COMMENT) : NULL);\
+        sprintf_s(_val, "%d", level.item);\
+        (INI).SetValue(SECTION, _key, _val, (level.level == 1) ? (COMMENT) : NULL);\
     }\
 } while (0)
 
@@ -84,7 +86,7 @@ Settings settings;
 static void
 IniSetValueFloat(
     CSimpleIniA &ini,
-    const char *section
+    const char *section,
     const char *key,
     float val,
     const char *comment
@@ -117,7 +119,7 @@ Settings::GetSkillStr(
     ASSERT(skill < kSkillCount);
     ASSERT(prefix);
 
-    int res = snprintf(buf, buf_size, "%s%s", prefix, skillNames[skill]);
+    int res = snprintf(buf, buf_size, "%s%s", prefix, kSkillNames[skill]);
     ASSERT((0 <= res) && (res < buf_size));
 }
 
@@ -128,7 +130,7 @@ Settings::GetSkillStr(
  *
  * @param skill_id The ID to be converted.
  */
-player_skill_e
+Settings::player_skill_e
 Settings::GetSkillFromId(
     unsigned int skill_id
 ) {
@@ -160,7 +162,7 @@ Settings::SaveConfig(
     // Save the per-skill settings.
     for (int i = 0; i < kSkillCount; i++) {
         /* Skill cap settings */
-        GetSkillStr(skill_buf, skill_buf_size, i, "i");
+        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "i");
 
         ini.SetLongValue(
             "SkillCaps",
@@ -177,7 +179,7 @@ Settings::SaveConfig(
         );
 
         /* Exp multiplier settings */
-        GetSkillStr(skill_buf, skill_buf_size, i, "f");
+        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "f");
 
         IniSetValueFloat(
             ini,
@@ -195,7 +197,7 @@ Settings::SaveConfig(
             (!i) ? kLevelSkillExpMultsDesc : NULL
         );
 
-        GetSkillStr(skill_buf, skill_buf_size, i, "SkillExpGainMults\\CharacterLevel\\");
+        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "SkillExpGainMults\\CharacterLevel\\");
         SaveFloatLevelListSection(
             ini,
             settingsSkillExpGainMultsWithPCLevel[i],
@@ -203,7 +205,7 @@ Settings::SaveConfig(
             (!i) ? kSkillExpGainMultsWithPCLevelDesc : NULL
         );
 
-        GetSkillStr(skill_buf, skill_buf_size, i, "SkillExpGainMults\\BaseSkillLevel\\");
+        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "SkillExpGainMults\\BaseSkillLevel\\");
         SaveFloatLevelListSection(
             ini,
             settingsSkillExpGainMultsWithSkills[i],
@@ -211,7 +213,7 @@ Settings::SaveConfig(
             (!i) ? kSkillExpGainMultsWithSkillsDesc : NULL
         );
 
-        GetSkillStr(skill_buf, skill_buf_size, i, "LevelSkillExpMults\\CharacterLevel\\");
+        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "LevelSkillExpMults\\CharacterLevel\\");
         SaveFloatLevelListSection(
             ini,
             settingsLevelSkillExpMultsWithPCLevel[i],
@@ -219,7 +221,7 @@ Settings::SaveConfig(
             (!i) ? kLevelSkillExpMultsWithPCLevelDesc : NULL
         );
 
-        GetSkillStr(skill_buf, skill_buf_size, i, "LevelSkillExpMults\\BaseSkillLevel\\");
+        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "LevelSkillExpMults\\BaseSkillLevel\\");
         SaveFloatLevelListSection(
             ini,
             settingsLevelSkillExpMultsWithSkills[i],
@@ -237,25 +239,25 @@ Settings::SaveConfig(
     SaveIntLevelListSection(ini, settingsCarryWeightAtMagickaLevelUp, "CarryWeightAtMagickaLevelUp", kCarryWeightAtMagickaLevelUpDesc);
     SaveIntLevelListSection(ini, settingsCarryWeightAtStaminaLevelUp, "CarryWeightAtStaminaLevelUp", kCarryWeightAtStaminaLevelUpDesc);
 
-    ini->SetBoolValue(
+    ini.SetBoolValue(
         "LegendarySkill",
         "bLegendaryKeepSkillLevel",
         settings.settingsLegendarySkill.bLegendaryKeepSkillLevel,
         kLegendaryKeepSkillLevelDesc
     );
-    ini->SetBoolValue(
+    ini.SetBoolValue(
         "LegendarySkill",
         "bHideLegendaryButton",
         settings.settingsLegendarySkill.bHideLegendaryButton,
         kHideLegendaryButtonDesc
     );
-    ini->SetLongValue(
+    ini.SetLongValue(
         "LegendarySkill",
         "iSkillLevelEnableLegendary",
         settings.settingsLegendarySkill.iSkillLevelEnableLegendary,
         kSkillLevelEnableLegendaryDesc
     );
-    ini->SetLongValue(
+    ini.SetLongValue(
         "LegendarySkill",
         "iSkillLevelAfterLegendary",
         settings.settingsLegendarySkill.iSkillLevelAfterLegendary,
@@ -263,7 +265,7 @@ Settings::SaveConfig(
     );
 
     // Save the generated INI file.
-    SI_Error er = ini->SaveFile(path.c_str());
+    SI_Error er = ini.SaveFile(path.c_str());
     if (er < SI_OK) {
         _ERROR("Can't save config file ret:%d errno:%d", (int)er,  errno);
         return false;
@@ -321,27 +323,27 @@ Settings::ReadConfig(
     char skill_buf[skill_buf_size];
 
     // Iterate over settings for each skill.
-    for (size_t i = 0; i < kSkillCount; i++) {
+    for (int i = 0; i < kSkillCount; i++) {
         /* Load default caps */
-        GetSkillStr(skill_buf, skill_buf_size, i, "i");
+        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "i");
         settingsSkillCaps[i] = ini.GetLongValue("SkillCaps", skill_buf, 100);
         settingsSkillFormulaCaps[i] = ini.GetLongValue("SkillFormulaCaps", skill_buf, 100);
 
         /* Load EXP multipliers */
-        GetSkillStr(skill_buf, skill_buf_size, i, "f");
+        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "f");
         settingsSkillExpGainMults[i] = atof(ini.GetValue("SkillExpGainMults", skill_buf, "1.00"));
         settingsLevelSkillExpMults[i] = atof(ini.GetValue("LevelSkillExpMults", skill_buf, "1.00"));
 
-        GetSkillStr(skill_buf, skill_buf_size, i, "SkillExpGainMults\\CharacterLevel\\");
+        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "SkillExpGainMults\\CharacterLevel\\");
         ReadFloatLevelListSection(ini, settingsSkillExpGainMultsWithPCLevel[i], skill_buf, 1.00);
 
-        GetSkillStr(skill_buf, skill_buf_size, i, "SkillExpGainMults\\BaseSkillLevel\\");
+        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "SkillExpGainMults\\BaseSkillLevel\\");
         ReadFloatLevelListSection(ini, settingsSkillExpGainMultsWithSkills[i], skill_buf, 1.00);
 
-        GetSkillStr(skill_buf, skill_buf_size, i, "LevelSkillExpMults\\CharacterLevel\\");
+        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "LevelSkillExpMults\\CharacterLevel\\");
         ReadFloatLevelListSection(ini, settingsLevelSkillExpMultsWithPCLevel[i], skill_buf, 1.00);
 
-        GetSkillStr(skill_buf, skill_buf_size, i, "LevelSkillExpMults\\BaseSkillLevel\\");
+        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "LevelSkillExpMults\\BaseSkillLevel\\");
         ReadFloatLevelListSection(ini, settingsLevelSkillExpMultsWithSkills[i], skill_buf, 1.00);
     }
 
