@@ -1,10 +1,11 @@
 /**
  * @file Signatures.h
- * @author Kasplat
+ * @author Andrew Spaulding (Kasplat)
  * @brief Code signatures for the assembly the skill functions hook in to.
  * @bug No known bugs.
  *
  * Note that these signatures and comments were originally written by vadfromnu.
+ * This file is more just a reorganization of his work.
  */
 
 #ifndef __SKYRIM_SSE_SKILL_UNCAPPER_SIGNATURES_H__
@@ -13,13 +14,56 @@
 #include <cstddef>
 
 /**
+ * @brief The signature and offset used to hook into the perk pool modification
+ *        routine.
+ *
+ * The assembly for this signature is as follows:
+ * 48 85 c0        TEST       RAX,RAX
+ * 74 34           JZ         LAB_1408f678f
+ * LAB_1408f675b   XREF[2]:     1435b64c0(*), 1435b64c8(*)
+ * 66 0f 6e c7     MOVD       XMM0,EDI
+ * 0f 5b c0        CVTDQ2PS   XMM0,XMM0
+ * f3 0f 58        ADDSS      XMM0,dword ptr [RAX + 0x34]
+ * 40 34
+ * f3 0f 11        MOVSS      dword ptr [RAX + 0x34],XMM0
+ * 40 34
+ * 48 83 c4 20     ADD        RSP,0x20
+ * 5f              POP        RDI
+ * c3              RET
+ * LAB_1408f6772   XREF[1]:     1408f671f(j)
+ * ### kHook_ModifyPerkPool (entry) ###
+ * 48 8b 15        MOV        RDX,qword ptr [DAT_142fc19c8]
+ * 4f b2 6c 02
+ * 0f b6 8a        MOVZX      ECX,byte ptr [RDX + 0xb01]
+ * 01 0b 00 00
+ * 8b c1           MOV        EAX,ECX
+ * 03 c7           ADD        EAX,EDI
+ * 78 09           JS         LAB_1408f678f
+ * 40 02 cf        ADD        CL,DIL
+ * 88 8a 01        MOV        byte ptr [RDX + 0xb01],CL
+ * 0b 00 00
+ * LAB_1408f678f   XREF[2]:     1408f6759(j), 1408f6784(j)
+ * 48 83 c4 20     ADD        RSP,0x20
+ * ### kHook_ModifyPerkPool (return) ###
+ * 5f              POP        RDI
+ * c3              RET
+ */
+///@{
+const char *const kModifyPerkPoolSig =
+    "48 85 C0 74 ? 66 0F 6E ? 0F 5B C0 F3 0F 58 40 34 F3 0F 11 40 34 48 83 C4 "
+    "20 ? C3 48 8B 15 ? ? ? ? 0F B6 8A 09 0B 00 00 8B C1 03 ? 78";
+const size_t kModifyPerkPoolSigOffset = 0x1C;
+const size_t kModifyPerkPoolPatchSize = 0x1D;
+///@}
+
+/**
  * @brief The signature and offset used to redirect to the code which alters
  *        the real skill cap.
  *
  * The offset into this signature overwrites a movess instruction and instead
  * redirects to our handler. Note that the last four bytes of this instruction
  * must be overwritten with 0x90 (NOP), at the request of the author of the
- * eXPerience mod (17751).
+ * eXPerience mod (17751). This is handled by the RelocFn interface.
  *
  * This signature hooks into the following function:
  * void FUN_14070ec10(
@@ -62,6 +106,7 @@
 const char *const kSkillCapPatchSig =
     "48 8B 0D ? ? ? ? 48 81 C1 B8 00 00 00 48 8B 01 FF 50 18 44 0F 28 C0";
 const size_t kSkillCapPatchSigOffset = 0x18;
+const size_t kSkillCapPatchPatchSize = 9;
 ///@}
 
 #endif /* __SKYRIM_SSE_SKILL_UNCAPPER_SIGNATURES_H__ */

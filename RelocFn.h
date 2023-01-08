@@ -29,15 +29,13 @@
 #include "reg2k/RVA.h"
 
 #include "Signatures.h"
+#include "SafeMemSet.h"
 
 /// @brief The maximum size of an instruction in the x86 ISA.
 const size_t kMaxInstrSize = 15;
 
-/// @brief A buffer containing up to the max instruction size in NOPs.
-const uint8_t kNopBuf[kMaxInstrSize] = {
-    0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-    0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90
-};
+/// @brief The opcode for an x86 NOP.
+const uint8_t kNop = 0x90;
 
 /// @brief Encodes the various types of hooks which can be injected.
 class HookType {
@@ -65,7 +63,7 @@ class RelocFn {
     const char *name;
     const char *sig;
     size_t hook_offset;
-    size_t hook_instr_size;
+    size_t patch_size;
     HookType::t hook_type;
 
     bool hook_done = false;
@@ -78,19 +76,19 @@ class RelocFn {
      * @param sig The binary code signature of the function.
      * @param hook_offset The offset from the beginning of the signature to
      *        the start of the hook.
-     * @param hook_instr_size The size of the instruction being overwritten
+     * @param patch_size The size of the instructions being overwritten
      *        for the hook.
      */
     RelocFn(
         const char *name,
         const char *sig,
         size_t hook_offset,
-        size_t hook_instr_size,
+        size_t patch_size,
         HookType::t hook_type
     ) : name(name),
         sig(sig),
         hook_offset(hook_offset),
-        hook_instr_size(hook_instr_size),
+        patch_size(patch_size),
         hook_type(hook_type)
     {}
 
@@ -146,7 +144,7 @@ class RelocFn {
 
         size_t hook_size = HookType::Size(hook_type);
         ASSERT(!hook_done);
-        ASSERT(hook_size <= hook_instr_size);
+        ASSERT(hook_size <= patch_size);
 
         // Install the hook, linking to the given address.
         switch(hook_type) {
@@ -167,9 +165,7 @@ class RelocFn {
         // Overwrite the rest of the instruction with NOPs. We do this with
         // every hook to ensure the best compatibility with other SKSE
         // plugins.
-        if (hook_instr_size > hook_size) {
-            SafeWriteBuf(GetRetAddr(), kNopBuf, hook_instr_size - hook_size);
-        }
+        SafeMemSet(GetRetAddr(), kNop, patch_size - hook_size);
 
         hook_done = true;
     }

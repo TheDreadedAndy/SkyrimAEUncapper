@@ -31,14 +31,20 @@ typedef float(*_GetEffectiveSkillLevel)(ActorValueOwner *, UInt32 skillID);
 
 static RelocPtr <void*>        g_thePlayer(0x02F40458);
 
-static RelocAddr <uintptr_t *> kHook_ModifyPerkPool_Ent(0x008C584F);
-static RelocAddr <uintptr_t *> kHook_ModifyPerkPool_Ret(0x008C584F + 0x1C);
+static RelocFn<uintptr_t*> kHook_ModifyPerkPool(
+    "kHook_ModifyPerkPool",
+    kModifyPerkPoolSig,
+    kModifyPerkPoolSigOffset,
+    kModifyPerkPoolPatchSize,
+    HookType::Branch5
+);
 
 static RelocFn<uintptr_t*> kHook_SkillCapPatch(
     "kHook_SkillCapPatch",
     kSkillCapPatchSig,
     kSkillCapPatchSigOffset,
-    kSkillCapPatchInstrSize
+    kSkillCapPatchPatchSize,
+    HookType::Branch5
 );
 
 #if 0
@@ -80,6 +86,7 @@ RelocAddr <_CalculateChargePointsPerUse> CalculateChargePointsPerUse_Original(0x
 class ActorValueOwner;
 static RelocAddr <_GetEffectiveSkillLevel> GetEffectiveSkillLevel(0x03E5400);    //V1.5.3
 
+#if 0
 float CalculateSkillExpForLevel(UInt32 skillID, float skillLevel)
 {
     float result = 0.0f;
@@ -98,7 +105,9 @@ float CalculateSkillExpForLevel(UInt32 skillID, float skillLevel)
     }
     return result;
 }
+#endif
 
+#if 0
 float CalculateChargePointsPerUse_Hook(float basePoints, float enchantingLevel)
 {
     float fEnchantingCostExponent = 1.10f;// 0x01D8A058;             //1.10
@@ -125,8 +134,10 @@ float CalculateChargePointsPerUse_Hook(float basePoints, float enchantingLevel)
     return result;
     //Charges Per Use = 3 * (base enchantment cost * magnitude / maximum magnitude)^1.1 * (1 - sqrt(skill/200))
 }
+#endif
 
-/*void ImproveSkillLevel_Hook(void* pPlayer, UInt32 skillID, UInt32 count)
+#if 0
+void ImproveSkillLevel_Hook(void* pPlayer, UInt32 skillID, UInt32 count)
 {
     PlayerSkills* skillData = *reinterpret_cast<PlayerSkills**>(reinterpret_cast<uintptr_t>(pPlayer)+0x9B0);
     if (count < 1)
@@ -164,7 +175,8 @@ float CalculateChargePointsPerUse_Hook(float basePoints, float enchantingLevel)
         }
         levelData->points += levelData->pointsMax * skillProgression;
     }
-}*/
+}
+#endif
 
 void ImprovePlayerSkillPoints_Hook(PlayerSkills* skillData, UInt32 skillID, float exp, UInt64 unk1, UInt32 unk2, UInt8 unk3, bool unk4)
 {
@@ -292,38 +304,6 @@ void InitRVA()
     //g_thePlayer = 0x02FC19C8;
     g_gameSettingCollection                    = RVAScan<SettingCollectionMap**>(GET_RVA(g_gameSettingCollection), "EB 02 33 FF 48 89 3D ? ? ? ? 48 8B C7 48 8B 5C ? ? 48 83 C4 30 5F C3", 4, 3, 7);
     //g_gameSettingCollection = 0x02F60000;
-
-    kHook_ModifyPerkPool_Ent = RELOC_FROM_RVA(RVAScan<uintptr_t *>(GET_RVA(kHook_ModifyPerkPool_Ent), "48 85 C0 74 ? 66 0F 6E ? 0F 5B C0 F3 0F 58 40 34 F3 0F 11 40 34 48 83 C4 20 ? C3 48 8B 15 ? ? ? ? 0F B6 8A 09 0B 00 00 8B C1 03 ? 78", 0x1C));
-    kHook_ModifyPerkPool_Ret = RELOC_ADD(kHook_ModifyPerkPool_Ent, 0x1D);
-/*
-       1408f6756 48 85 c0        TEST       RAX,RAX
-       1408f6759 74 34           JZ         LAB_1408f678f
-                             LAB_1408f675b                                   XREF[2]:     1435b64c0(*), 1435b64c8(*)
-       1408f675b 66 0f 6e c7     MOVD       XMM0,EDI
-       1408f675f 0f 5b c0        CVTDQ2PS   XMM0,XMM0
-       1408f6762 f3 0f 58        ADDSS      XMM0,dword ptr [RAX + 0x34]
-                 40 34
-       1408f6767 f3 0f 11        MOVSS      dword ptr [RAX + 0x34],XMM0
-                 40 34
-       1408f676c 48 83 c4 20     ADD        RSP,0x20
-       1408f6770 5f              POP        RDI
-       1408f6771 c3              RET
-                             LAB_1408f6772                                   XREF[1]:     1408f671f(j)
-       1408f6772 48 8b 15        MOV        RDX,qword ptr [DAT_142fc19c8] !!!kHook_ModifyPerkPool_Ent + 0x1C
-                 4f b2 6c 02
-       1408f6779 0f b6 8a        MOVZX      ECX,byte ptr [RDX + 0xb01]
-                 01 0b 00 00
-       1408f6780 8b c1           MOV        EAX,ECX
-       1408f6782 03 c7           ADD        EAX,EDI
-       1408f6784 78 09           JS         LAB_1408f678f
-       1408f6786 40 02 cf        ADD        CL,DIL
-       1408f6789 88 8a 01        MOV        byte ptr [RDX + 0xb01],CL
-                 0b 00 00
-                             LAB_1408f678f                                   XREF[2]:     1408f6759(j), 1408f6784(j)
-       1408f678f 48 83 c4 20     ADD        RSP,0x20 !!!kHook_ModifyPerkPool_Ret
-       1408f6793 5f              POP        RDI
-       1408f6794 c3              RET
-*/
 
 #if 0
     kHook_ExecuteLegendarySkill_Ent            = RVAScan<uintptr_t *>(GET_RVA(kHook_ExecuteLegendarySkill_Ent), "0F 82 85 00 00 00 48 8B 0D ? ? ? ? 48 81 C1 B0 00 00 00 48 8B 01 F3 0F 10 15 ? ? ? ? 8B 56 1C FF 50 20 48 8B 05 ? ? ? ? 8B 56 1C 48 8B 88 B0 09 00 00");
@@ -666,9 +646,7 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
         SkillCapPatch_Code code(codeBuf);
         g_localTrampoline.EndAlloc(code.getCurr());
 
-        g_branchTrampoline.Write5Branch(kHook_SkillCapPatch.GetUIntPtr(), uintptr_t(code.getCode()));
-        unsigned char nops[] = {0x90,0x90,0x90,0x90}; // Overwrite end of MOVSS for compatibility with Experience mod
-        SafeWriteBuf(kHook_SkillCapPatch.GetUIntPtr() + 5, &nops, sizeof(nops));
+        kHook_SkillCapPatch.Hook(code.getCode());
     }
 
     {
@@ -683,7 +661,7 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
                 add(rsp, 0x20);
                 jmp(ptr[rip + retnLabel]);
             L(retnLabel);
-                dq(kHook_ModifyPerkPool_Ret.GetUIntPtr());
+                dq(kHook_ModifyPerkPool.GetRetAddr());
             }
         };
 
@@ -691,7 +669,7 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
         ModifyPerkPool_Code code(codeBuf);
         g_localTrampoline.EndAlloc(code.getCurr());
 
-        g_branchTrampoline.Write5Branch(kHook_ModifyPerkPool_Ent.GetUIntPtr(), uintptr_t(code.getCode()));
+        kHook_ModifyPerkPool.Hook(code.getCode());
     }
 
     {
