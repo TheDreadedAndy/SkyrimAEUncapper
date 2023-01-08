@@ -12,9 +12,6 @@
 
 #include <cstddef>
 
-/// @brief The byte size of the branches which are patched into the code.
-const size_t kBranchPatchSize = 5;
-
 /**
  * @brief The signature and offset used to redirect to the code which alters
  *        the real skill cap.

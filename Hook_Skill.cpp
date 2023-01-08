@@ -6,7 +6,6 @@
 #include "BranchTrampoline.h"
 #include "SafeWrite.h"
 #include "xbyak.h"
-#include "reg2k/RVA.h"
 #include "Signatures.h"
 
 using LevelData = PlayerSkills::StatData::LevelData;
@@ -14,56 +13,72 @@ using LevelData = PlayerSkills::StatData::LevelData;
 #define RELOC_FROM_RVA(r) RelocAddr<uintptr_t*>((r).GetUIntPtr() - RelocationManager::s_baseAddr)
 #define RELOC_ADD(r, ofst) RelocAddr<uintptr_t*>(((r).GetUIntPtr() - RelocationManager::s_baseAddr) + ofst)
 
-RelocPtr <void*>        g_thePlayer(0x02F40458);
+/**
+ * @brief Function definitions for our hooks into the game.
+ */
+///@{
+typedef void(*_ImproveSkillLevel)(void* pPlayer, UInt32 skillID, UInt32 count);
+typedef void(*_ImprovePlayerSkillPoints)(void*, UInt32, float, UInt64, UInt32, UInt8, bool);
+typedef UInt64(*_ImproveAttributeWhenLevelUp)(void*, UInt8);
+typedef bool(*_GetSkillCoefficients)(UInt32, float*, float*, float*, float*);
+typedef UInt16(*_GetLevel)(void* pPlayer);
+typedef float(*_ImproveLevelExpBySkillLevel)(float skillLevel);
+typedef float(*_GetCurrentActorValue)(void*, UInt32);
+typedef float(*_GetBaseActorValue)(void*, UInt32);
+typedef float(*_CalculateChargePointsPerUse)(float basePoints, float enchantingLevel);
+typedef float(*_GetEffectiveSkillLevel)(ActorValueOwner *, UInt32 skillID);
+///@}
 
-RelocAddr <uintptr_t *> kHook_ModifyPerkPool_Ent(0x008C584F);
-RelocAddr <uintptr_t *> kHook_ModifyPerkPool_Ret(0x008C584F + 0x1C);
+static RelocPtr <void*>        g_thePlayer(0x02F40458);
 
-RelocAddr <uintptr_t *> kHook_SkillCapPatch_Ent(0x006E4B78);
-RelocAddr <uintptr_t *> kHook_SkillCapPatch_Ret(0x006E4B78 + 0x9);
+static RelocAddr <uintptr_t *> kHook_ModifyPerkPool_Ent(0x008C584F);
+static RelocAddr <uintptr_t *> kHook_ModifyPerkPool_Ret(0x008C584F + 0x1C);
 
-/*RelocAddr <uintptr_t *> kHook_ExecuteLegendarySkill_Ent = 0x08C95FD;//get it when legendary skill by trace setbaseav.
+static RelocFn<uintptr_t*> kHook_SkillCapPatch(
+    "kHook_SkillCapPatch",
+    kSkillCapPatchSig,
+    kSkillCapPatchSigOffset,
+    kSkillCapPatchInstrSize
+);
+
+#if 0
+RelocAddr <uintptr_t *> kHook_ExecuteLegendarySkill_Ent = 0x08C95FD;//get it when legendary skill by trace setbaseav.
 RelocAddr <uintptr_t *> kHook_ExecuteLegendarySkill_Ret = 0x08C95FD + 0x6;
 
 RelocAddr <uintptr_t *> kHook_CheckConditionForLegendarySkill_Ent = 0x08BF655;
 RelocAddr <uintptr_t *> kHook_CheckConditionForLegendarySkill_Ret = 0x08BF655 + 0x13;
 
 RelocAddr <uintptr_t *> kHook_HideLegendaryButton_Ent = 0x08C1456;
-RelocAddr <uintptr_t *> kHook_HideLegendaryButton_Ret = 0x08C1456 + 0x1D;*/
+RelocAddr <uintptr_t *> kHook_HideLegendaryButton_Ret = 0x08C1456 + 0x1D;
+#endif
 
-typedef void(*_ImproveSkillLevel)(void* pPlayer, UInt32 skillID, UInt32 count);
-RelocAddr <_ImproveSkillLevel> ImproveSkillLevel_Hook(0x06A0EE0);
+static RelocAddr <_ImproveSkillLevel> ImproveSkillLevel_Hook(0x06A0EE0);
 
-typedef void(*_ImprovePlayerSkillPoints)(void*, UInt32, float, UInt64, UInt32, UInt8, bool);
-RelocAddr <_ImprovePlayerSkillPoints> ImprovePlayerSkillPoints(0x06E4B30);
-_ImprovePlayerSkillPoints ImprovePlayerSkillPoints_Original = nullptr;
+static RelocAddr <_ImprovePlayerSkillPoints> ImprovePlayerSkillPoints(0x06E4B30);
+static _ImprovePlayerSkillPoints ImprovePlayerSkillPoints_Original = nullptr;
 
-typedef UInt64(*_ImproveAttributeWhenLevelUp)(void*, UInt8);
-RelocAddr <_ImproveAttributeWhenLevelUp> ImproveAttributeWhenLevelUp(0x08925D0);
-_ImproveAttributeWhenLevelUp ImproveAttributeWhenLevelUp_Original = nullptr;
+static RelocAddr <_ImproveAttributeWhenLevelUp> ImproveAttributeWhenLevelUp(0x08925D0);
+static _ImproveAttributeWhenLevelUp ImproveAttributeWhenLevelUp_Original = nullptr;
 
-typedef bool(*_GetSkillCoefficients)(UInt32, float*, float*, float*, float*);
-RelocAddr <_GetSkillCoefficients> GetSkillCoefficients(0x03E37F0);
+static RelocAddr <_GetSkillCoefficients> GetSkillCoefficients(0x03E37F0);
 
-typedef UInt16(*_GetLevel)(void* pPlayer);
-RelocAddr <_GetLevel> GetLevel(0x05D4C40);
+static RelocAddr <_GetLevel> GetLevel(0x05D4C40);
 
-/*typedef float(*_ImproveLevelExpBySkillLevel)(float skillLevel);
-RelocAddr <_ImproveLevelExpBySkillLevel> ImproveLevelExpBySkillLevel_Original = 0x06E5D90;*/
+#if 0
+RelocAddr <_ImproveLevelExpBySkillLevel> ImproveLevelExpBySkillLevel_Original = 0x06E5D90;
 
-/*typedef float(*_GetCurrentActorValue)(void*, UInt32);
 RelocAddr <_GetCurrentActorValue> GetCurrentActorValue = 0x061F6C0;
-_GetCurrentActorValue GetCurrentActorValue_Original = nullptr;*/
+_GetCurrentActorValue GetCurrentActorValue_Original = nullptr;
+#endif
 
-typedef float(*_GetBaseActorValue)(void*, UInt32);
-RelocAddr <_GetBaseActorValue> GetBaseActorValue(0x061F890);    //GetBaseActorValue
+static RelocAddr <_GetBaseActorValue> GetBaseActorValue(0x061F890);    //GetBaseActorValue
 
-/*typedef float(*_CalculateChargePointsPerUse)(float basePoints, float enchantingLevel);
-RelocAddr <_CalculateChargePointsPerUse> CalculateChargePointsPerUse_Original(0x03C0F10);*/
+#if 0
+RelocAddr <_CalculateChargePointsPerUse> CalculateChargePointsPerUse_Original(0x03C0F10);
+#endif
 
 class ActorValueOwner;
-typedef float(*_GetEffectiveSkillLevel)(ActorValueOwner *, UInt32 skillID);
-RelocAddr <_GetEffectiveSkillLevel> GetEffectiveSkillLevel(0x03E5400);    //V1.5.3
+static RelocAddr <_GetEffectiveSkillLevel> GetEffectiveSkillLevel(0x03E5400);    //V1.5.3
 
 float CalculateSkillExpForLevel(UInt32 skillID, float skillLevel)
 {
@@ -192,10 +207,10 @@ UInt64 ImproveAttributeWhenLevelUp_Hook(void* unk0, UInt8 unk1)
 void ModifyPerkPool_Hook(SInt8 count)
 {
     UInt8* points = *reinterpret_cast<UInt8**>(g_thePlayer.GetPtr()) + 0xB09;
-    if (count > 0) {//AddPerkPoints
+    if (count > 0) { // Add perk points
         UInt32 sum = settings.GetPerkDelta(GetLevel(*g_thePlayer)) + *points;
         *points = (sum > 0xFF) ? 0xFF : static_cast<UInt8>(sum);
-    } else { //RemovePerkPoints
+    } else { // Remove perk points
         SInt32 sum = *points + count;
         *points = (sum < 0) ? 0 : static_cast<UInt8>(sum);
     }
@@ -309,14 +324,6 @@ void InitRVA()
        1408f6793 5f              POP        RDI
        1408f6794 c3              RET
 */
-
-    kHook_SkillCapPatch_Ent = RVAScan<uintptr_t *>(
-        GET_RVA(kHook_SkillCapPatch_Ent),
-        kSkillCapPatchSig,
-        kSkillCapPatchSigOffset
-    );
-    kHook_SkillCapPatch_Ret                    = kHook_SkillCapPatch_Ent;
-    kHook_SkillCapPatch_Ret                    += 5;
 
 #if 0
     kHook_ExecuteLegendarySkill_Ent            = RVAScan<uintptr_t *>(GET_RVA(kHook_ExecuteLegendarySkill_Ent), "0F 82 85 00 00 00 48 8B 0D ? ? ? ? 48 81 C1 B0 00 00 00 48 8B 01 F3 0F 10 15 ? ? ? ? 8B 56 1C FF 50 20 48 8B 05 ? ? ? ? 8B 56 1C 48 8B 88 B0 09 00 00");
@@ -651,7 +658,7 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
                 add(rsp, 0x30);
                 jmp(ptr[rip + retnLabel]); // jump to cur and max cmp
             L(retnLabel);
-                dq(kHook_SkillCapPatch_Ret.GetUIntPtr());
+                dq(kHook_SkillCapPatch.GetRetAddr());
             }
         };
 
@@ -659,9 +666,9 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
         SkillCapPatch_Code code(codeBuf);
         g_localTrampoline.EndAlloc(code.getCurr());
 
-        g_branchTrampoline.Write5Branch(kHook_SkillCapPatch_Ent.GetUIntPtr(), uintptr_t(code.getCode()));
+        g_branchTrampoline.Write5Branch(kHook_SkillCapPatch.GetUIntPtr(), uintptr_t(code.getCode()));
         unsigned char nops[] = {0x90,0x90,0x90,0x90}; // Overwrite end of MOVSS for compatibility with Experience mod
-        SafeWriteBuf(kHook_SkillCapPatch_Ent.GetUIntPtr() + 5, &nops, sizeof(nops));
+        SafeWriteBuf(kHook_SkillCapPatch.GetUIntPtr() + 5, &nops, sizeof(nops));
     }
 
     {

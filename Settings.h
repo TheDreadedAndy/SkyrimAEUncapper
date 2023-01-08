@@ -11,11 +11,13 @@
 #ifndef __SKYRIM_UNCAPPER_AE_SETTINGS_H__
 #define __SKYRIM_UNCAPPER_AE_SETTINGS_H__
 
-#include "SimpleIni.h"
 #include <map>
 #include <string>
 #include <algorithm>
 #include <vector>
+
+#include "common/IErrors.h"
+#include "SimpleIni.h"
 
 #define CONFIG_VERSION 5
 
