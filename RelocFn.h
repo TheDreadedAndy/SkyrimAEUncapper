@@ -40,57 +40,96 @@ const uint8_t kNop = 0x90;
 /// @brief Encodes the various types of hooks which can be injected.
 class HookType {
 public:
-    enum t { Branch5, Branch6, Call5, Call6 };
+    const size_t kDirectCallPatchSize = 5;
+    const size_t kDirectJumpPatchSize = 5;
+
+    enum t { None, Branch5, Branch6, Call5, Call6, DirectCall, DirectJump };
 
     static size_t
         Size(
             t type
         ) {
         switch (type) {
-        case Branch5:
-        case Call5:
-            return 5;
-        case Branch6:
-        case Call6:
-            return 6;
+            case Branch5:
+            case Call5:
+                return 5;
+            case Branch6:
+            case Call6:
+                return 6;
+            case DirectCall:
+                return kDirectCallPatchSize;
+            case DirectJump:
+                return kDirectJumpPatchSize;
+            default:
+                HALT("Cannot get the size of an invalid hook type.");
         }
     }
 };
 
+/// @brief Describes a function to be hooked into by a RelocFn<T>.
+struct FunctionSignature {
+    const char *name;
+    HookType::t hook_type;
+    const char *sig;
+    size_t patch_size;
+    ptrdiff_t hook_offset;
+    ptrdiff_t indirect_offset;
+    size_t instr_size;
+
+    /**
+     * @brief Creates a new function signature structure.
+     * @param name The name of the function signature.
+     * @param hook_type The type of hook to be inserted, or None.
+     * @param sig The hex signature to search for.
+     * @param patch_size The size of the code to be overwritten.
+     * @param offset The offset from the signature to the hook address.
+     * @param indirect_offset An indirection offset to use to dereference the
+     *                        first hook address to get a second, or 0.
+     * @param instr_size The size of the instruction being indirected through,
+     *                   or 0.
+     */
+    FunctionSignature(
+        const char *name,
+        HookType::t hook_type,
+        const char *sig,
+        size_t patch_size,
+        size_t hook_offset = 0,
+        size_t indirect_offset = 0,
+        size_t instr_size = 0
+    ) : name(name),
+        hook_type(hook_type),
+        sig(sig),
+        patch_size(patch_size),
+        hook_offset(hook_offset),
+        indirect_offset(indirect_offset),
+        instr_size(instr_size)
+    {}
+}
+
 template<typename T>
 class RelocFn {
   private:
-    const char *name;
-    const char *sig;
-    size_t hook_offset;
-    size_t patch_size;
-    HookType::t hook_type;
-
+    const FunctionSignature *sig;
     bool hook_done = false;
     uintptr_t real_address = 0;
 
   public:
     /**
      * @brief Constructs a new relocatable function hook.
-     * @param name The name of the relocatable function.
-     * @param sig The binary code signature of the function.
-     * @param hook_offset The offset from the beginning of the signature to
-     *        the start of the hook.
-     * @param patch_size The size of the instructions being overwritten
-     *        for the hook.
+     * @param sig The signature describing the function hook.
      */
     RelocFn(
-        const char *name,
-        const char *sig,
-        size_t hook_offset,
-        size_t patch_size,
-        HookType::t hook_type
-    ) : name(name),
-        sig(sig),
-        hook_offset(hook_offset),
-        patch_size(patch_size),
-        hook_type(hook_type)
+        const FunctionSignature *sig
+    ) : sig(sig)
     {}
+
+    /**
+     * @brief Dereferences this relocatable function to its underlying data.
+     */
+    T *operator->() {
+        Resolve();
+        return reinterpret_cast<T*>(real_address);
+    }
 
     /**
      * @brief Resolves the underlying address, if it has not already done so.
@@ -98,19 +137,17 @@ class RelocFn {
     void
     Resolve() {
         if (real_address) { return; }
-        auto rva = RVAScan<T>(name, sig, hook_offset);
-        real_address = rva.GetUIntPtr();
-        ASSERT(real_address);
-    }
 
-    /**
-     * @brief Gets the RelocAddr associated with this RelocFn.
-     */
-    RelocAddr<T>
-    GetRelocAddr() {
-        Resolve();
-        ASSERT(real_address >= RelocationManager::s_baseAddr);
-        return RelocAddr(real_address - RelocationManager::s_baseAddr);
+        auto rva = RVAScan<T>(
+            sig->name,
+            sig->sig,
+            sig->hook_offset,
+            sig->indirect_offset,
+            sig->instr_size
+        );
+        real_address = rva.GetUIntPtr();
+
+        ASSERT(real_address);
     }
 
     /**
@@ -128,7 +165,7 @@ class RelocFn {
     uintptr_t
     GetRetAddr() {
         Resolve();
-        return real_address + HookType::Size(hook_type);
+        return real_address + HookType::Size(sig->hook_type);
     }
 
     /**
@@ -142,12 +179,12 @@ class RelocFn {
     ) {
         Resolve();
 
-        size_t hook_size = HookType::Size(hook_type);
+        size_t hook_size = HookType::Size(sig->hook_type);
         ASSERT(!hook_done);
-        ASSERT(hook_size <= patch_size);
+        ASSERT(hook_size <= sig->patch_size);
 
         // Install the hook, linking to the given address.
-        switch(hook_type) {
+        switch(sig->hook_type) {
             case HookType::Branch5:
                 ASSERT(g_branchTrampoline.Write5Branch(real_address, target));
                 break;
@@ -160,12 +197,20 @@ class RelocFn {
             case HookType::Call6:
                 ASSERT(g_branchTrampoline.Write6Call(real_address, target));
                 break;
+            case HookType::DirectCall:
+                ASSERT(SafeWriteCall(real_address, target));
+                break;
+            case HookType::DirectJump:
+                ASSERT(SafeWriteJump(real_address, target));
+                break;
+            default:
+                HALT("Cannot install a hook with an invalid type");
         }
 
         // Overwrite the rest of the instruction with NOPs. We do this with
         // every hook to ensure the best compatibility with other SKSE
         // plugins.
-        SafeMemSet(GetRetAddr(), kNop, patch_size - hook_size);
+        SafeMemSet(GetRetAddr(), kNop, sig->patch_size - hook_size);
 
         hook_done = true;
     }
