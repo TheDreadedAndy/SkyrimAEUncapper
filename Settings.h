@@ -8,7 +8,8 @@
  * more clear.
  */
 
-#pragma once
+#ifndef __SKYRIM_UNCAPPER_AE_SETTINGS_H__
+#define __SKYRIM_UNCAPPER_AE_SETTINGS_H__
 
 #include "SimpleIni.h"
 #include <map>
@@ -16,7 +17,7 @@
 #include <algorithm>
 #include <vector>
 
-#define CONFIG_VERSION 4
+#define CONFIG_VERSION 5
 
 template<typename T>
 class LeveledSetting {
@@ -349,3 +350,5 @@ class Settings {
 };
 
 extern Settings settings;
+
+#endif /* __SKYRIM_UNCAPPER_AE_SETTINGS_H__ */
