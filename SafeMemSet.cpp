@@ -33,7 +33,7 @@ SafeMemSet(
     memset(buf, c, MIN(buf_size, n));
     while (n) {
         size_t chunk = MIN(buf_size, n);
-        ASSERT(SafeWriteBuf(a, buf, chunk));
+        SafeWriteBuf(a, buf, chunk);
         a += chunk;
         n -= chunk;
     }

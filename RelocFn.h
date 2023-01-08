@@ -39,23 +39,23 @@ const uint8_t kNop = 0x90;
 
 /// @brief Encodes the various types of hooks which can be injected.
 class HookType {
-  public:
+public:
     enum t { Branch5, Branch6, Call5, Call6 };
 
     static size_t
-    Size(
-        t type
-    ) {
+        Size(
+            t type
+        ) {
         switch (type) {
-            case Branch5:
-            case Call5:
-                return 5;
-            case Branch6:
-            case Call6:
-                return 6;
+        case Branch5:
+        case Call5:
+            return 5;
+        case Branch6:
+        case Call6:
+            return 6;
         }
     }
-}
+};
 
 template<typename T>
 class RelocFn {

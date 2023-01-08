@@ -109,4 +109,18 @@ const size_t kSkillCapPatchSigOffset = 0x18;
 const size_t kSkillCapPatchPatchSize = 9;
 ///@}
 
+#if 0
+    kHook_ExecuteLegendarySkill_Ent            = RVAScan<uintptr_t *>(GET_RVA(kHook_ExecuteLegendarySkill_Ent), "0F 82 85 00 00 00 48 8B 0D ? ? ? ? 48 81 C1 B0 00 00 00 48 8B 01 F3 0F 10 15 ? ? ? ? 8B 56 1C FF 50 20 48 8B 05 ? ? ? ? 8B 56 1C 48 8B 88 B0 09 00 00");
+    kHook_ExecuteLegendarySkill_Ret            = kHook_ExecuteLegendarySkill_Ent;
+    kHook_ExecuteLegendarySkill_Ret            += 6;
+
+    kHook_CheckConditionForLegendarySkill_Ent = RVAScan<uintptr_t *>(GET_RVA(kHook_CheckConditionForLegendarySkill_Ent), "8B D0 48 8D 8F B0 00 00 00 FF 53 18 0F 2F 05 ? ? ? ? 0F 82 10 0A 00 00 45 33 FF 4C 89 7D 80 44 89 7D 88 45 33 C0 48 8B 15 ? ? ? ? 48 8D 4D 80");
+    kHook_CheckConditionForLegendarySkill_Ret = kHook_CheckConditionForLegendarySkill_Ent;
+    kHook_CheckConditionForLegendarySkill_Ret += 0x13;
+
+    kHook_HideLegendaryButton_Ent            = RVAScan<uintptr_t *>(GET_RVA(kHook_HideLegendaryButton_Ent), "48 8B 0D ? ? ? ? 48 81 C1 B0 00 00 00 48 8B 01 8B D6 FF 50 18 0F 2F 05 ? ? ? ? 72 64 48 8D 05 ? ? ? ? 48 89 85 C0 00 00 00 4C 89 64 24 20");
+    kHook_HideLegendaryButton_Ret            = kHook_HideLegendaryButton_Ent;
+    kHook_HideLegendaryButton_Ret            += 0x1D;
+#endif
+
 #endif /* __SKYRIM_SSE_SKILL_UNCAPPER_SIGNATURES_H__ */

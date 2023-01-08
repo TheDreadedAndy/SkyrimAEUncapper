@@ -1,17 +1,17 @@
 #include "common/IPrefix.h"
-#include "Hook_Skill.h"
-#include "Settings.h"
+#include "GameAPI.h"
 #include "GameSettings.h"
 #include "Relocation.h"
 #include "BranchTrampoline.h"
 #include "SafeWrite.h"
 #include "xbyak.h"
+
+#include "Hook_Skill.h"
+#include "Settings.h"
 #include "Signatures.h"
+#include "RelocFn.h"
 
 using LevelData = PlayerSkills::StatData::LevelData;
-
-#define RELOC_FROM_RVA(r) RelocAddr<uintptr_t*>((r).GetUIntPtr() - RelocationManager::s_baseAddr)
-#define RELOC_ADD(r, ofst) RelocAddr<uintptr_t*>(((r).GetUIntPtr() - RelocationManager::s_baseAddr) + ofst)
 
 /**
  * @brief Function definitions for our hooks into the game.
@@ -28,8 +28,6 @@ typedef float(*_GetBaseActorValue)(void*, UInt32);
 typedef float(*_CalculateChargePointsPerUse)(float basePoints, float enchantingLevel);
 typedef float(*_GetEffectiveSkillLevel)(ActorValueOwner *, UInt32 skillID);
 ///@}
-
-static RelocPtr <void*>        g_thePlayer(0x02F40458);
 
 static RelocFn<uintptr_t*> kHook_ModifyPerkPool(
     "kHook_ModifyPerkPool",
@@ -85,6 +83,31 @@ RelocAddr <_CalculateChargePointsPerUse> CalculateChargePointsPerUse_Original(0x
 
 class ActorValueOwner;
 static RelocAddr <_GetEffectiveSkillLevel> GetEffectiveSkillLevel(0x03E5400);    //V1.5.3
+
+/**
+ * @brief Gets the base level of a skill on the player character.
+ *
+ * The player pointer offset here is a magic constant. It seems to be accessing
+ * the actorState field in the object (which is private).
+ *
+ * @param skill_id The ID of the skill to get the base level of.
+ */
+static unsigned int
+GetPlayerBaseSkillLevel(
+    unsigned int skill_id
+) {
+    return static_cast<unsigned int>(
+        GetBaseActorValue((char*)(g_thePlayer.GetUIntPtr() + 0xB8), skill_id)
+    );
+}
+
+/**
+ * @brief Gets the current level of the player.
+ */
+static unsigned int
+GetPlayerLevel() {
+    return GetLevel(g_thePlayer.GetPtr());
+}
 
 #if 0
 float CalculateSkillExpForLevel(UInt32 skillID, float skillLevel)
@@ -180,34 +203,29 @@ void ImproveSkillLevel_Hook(void* pPlayer, UInt32 skillID, UInt32 count)
 
 void ImprovePlayerSkillPoints_Hook(PlayerSkills* skillData, UInt32 skillID, float exp, UInt64 unk1, UInt32 unk2, UInt8 unk3, bool unk4)
 {
-    const UInt32 baseSkillLevel = static_cast<UInt32>(GetBaseActorValue((char*)(*g_thePlayer) + 0xB8, skillID));
-    const UInt16 level = GetLevel(*g_thePlayer);
-    exp *= settings.GetSkillExpGainMult(skillID, baseSkillLevel, level);
+    exp *= settings.GetSkillExpGainMult(skillID, GetPlayerBaseSkillLevel(skillID), GetPlayerLevel());
     ImprovePlayerSkillPoints_Original(skillData, skillID, exp, unk1, unk2, unk3, unk4);
 }
 
 float ImproveLevelExpBySkillLevel_Hook(float exp, UInt32 skillID)
 {
-    UInt32 baseSkillLevel = static_cast<UInt32>(GetBaseActorValue((char*)(*g_thePlayer) + 0xB8, skillID));
-    UInt16 level = GetLevel(*g_thePlayer);
-    return exp * settings.GetLevelSkillExpMult(skillID, baseSkillLevel, level);
+    return exp * settings.GetLevelSkillExpMult(skillID, GetPlayerBaseSkillLevel(skillID), GetPlayerLevel());
 }
 
 UInt64 ImproveAttributeWhenLevelUp_Hook(void* unk0, UInt8 unk1)
 {
 
-    Setting * iAVDhmsLevelUp = (*g_gameSettingCollection)->Get("iAVDhmsLevelUp");
-    Setting * fLevelUpCarryWeightMod = (*g_gameSettingCollection)->Get("fLevelUpCarryWeightMod");
+    Setting * iAVDhmsLevelUp = g_gameSettingCollection->Get("iAVDhmsLevelUp");
+    Setting * fLevelUpCarryWeightMod = g_gameSettingCollection->Get("fLevelUpCarryWeightMod");
 
     ASSERT(iAVDhmsLevelUp);
     ASSERT(fLevelUpCarryWeightMod);
 
-    unsigned int level = GetLevel(*g_thePlayer);
     Settings::player_attr_e choice =
         *reinterpret_cast<Settings::player_attr_e*>(static_cast<char*>(unk0) + 0x18);
 
     settings.GetAttributeLevelUp(
-        level,
+        GetPlayerLevel(),
         choice,
         iAVDhmsLevelUp->data.u32,
         fLevelUpCarryWeightMod->data.f32
@@ -218,9 +236,9 @@ UInt64 ImproveAttributeWhenLevelUp_Hook(void* unk0, UInt8 unk1)
 
 void ModifyPerkPool_Hook(SInt8 count)
 {
-    UInt8* points = *reinterpret_cast<UInt8**>(g_thePlayer.GetPtr()) + 0xB09;
+    UInt8* points = &((g_thePlayer.GetPtr())->numPerkPoints);
     if (count > 0) { // Add perk points
-        UInt32 sum = settings.GetPerkDelta(GetLevel(*g_thePlayer)) + *points;
+        UInt32 sum = settings.GetPerkDelta(GetPlayerLevel()) + *points;
         *points = (sum > 0xFF) ? 0xFF : static_cast<UInt8>(sum);
     } else { // Remove perk points
         SInt32 sum = *points + count;
@@ -298,27 +316,6 @@ bool HideLegendaryButton_Hook(UInt32 skillID)
 #define GET_RVA(n) #n
 void InitRVA()
 {
-    // g_thePlayer and g_gameSettingCollection values are from SKSE
-    // TODO restore signatures or just use SKSE files.
-    g_thePlayer                                = RVAScan<void**>(GET_RVA(g_thePlayer), "F6 C1 04 74 65 49 8B AF 18 01 00 00 48 85 ED 74 59 48 8B D5 48 8B 0D", 0x14, 3, 7);
-    //g_thePlayer = 0x02FC19C8;
-    g_gameSettingCollection                    = RVAScan<SettingCollectionMap**>(GET_RVA(g_gameSettingCollection), "EB 02 33 FF 48 89 3D ? ? ? ? 48 8B C7 48 8B 5C ? ? 48 83 C4 30 5F C3", 4, 3, 7);
-    //g_gameSettingCollection = 0x02F60000;
-
-#if 0
-    kHook_ExecuteLegendarySkill_Ent            = RVAScan<uintptr_t *>(GET_RVA(kHook_ExecuteLegendarySkill_Ent), "0F 82 85 00 00 00 48 8B 0D ? ? ? ? 48 81 C1 B0 00 00 00 48 8B 01 F3 0F 10 15 ? ? ? ? 8B 56 1C FF 50 20 48 8B 05 ? ? ? ? 8B 56 1C 48 8B 88 B0 09 00 00");
-    kHook_ExecuteLegendarySkill_Ret            = kHook_ExecuteLegendarySkill_Ent;
-    kHook_ExecuteLegendarySkill_Ret            += 6;
-
-    kHook_CheckConditionForLegendarySkill_Ent = RVAScan<uintptr_t *>(GET_RVA(kHook_CheckConditionForLegendarySkill_Ent), "8B D0 48 8D 8F B0 00 00 00 FF 53 18 0F 2F 05 ? ? ? ? 0F 82 10 0A 00 00 45 33 FF 4C 89 7D 80 44 89 7D 88 45 33 C0 48 8B 15 ? ? ? ? 48 8D 4D 80");
-    kHook_CheckConditionForLegendarySkill_Ret = kHook_CheckConditionForLegendarySkill_Ent;
-    kHook_CheckConditionForLegendarySkill_Ret += 0x13;
-
-    kHook_HideLegendaryButton_Ent            = RVAScan<uintptr_t *>(GET_RVA(kHook_HideLegendaryButton_Ent), "48 8B 0D ? ? ? ? 48 81 C1 B0 00 00 00 48 8B 01 8B D6 FF 50 18 0F 2F 05 ? ? ? ? 72 64 48 8D 05 ? ? ? ? 48 89 85 C0 00 00 00 4C 89 64 24 20");
-    kHook_HideLegendaryButton_Ret            = kHook_HideLegendaryButton_Ent;
-    kHook_HideLegendaryButton_Ret            += 0x1D;
-#endif
-
     //ImproveSkillLevel_Hook            = RVAScan<_ImproveSkillLevel>(GET_RVA(ImproveSkillLevel_Hook), "48 8B 89 B0 09 00 00 B8 01 00 00 00 44 3B C0 44 0F 42 C0 E9", (0x14070ee08-0x1406ca9b0));
     ImproveSkillLevel_Hook = RVAScan<_ImproveSkillLevel>(GET_RVA(ImproveSkillLevel_Hook), "F3 0F 10 54 9F 10 41 3B F4 F3 0F 5C 54 9F 0C 0F 92 C0 8B D5 88 44 24 30 45 33 C9 44 88 6C 24 28 49 8B CF 44 89 6C 24 20 E8 73 FB FF FF FF C6 41 3B F6 72 CC", (0x14070ee08-0x14070ede0));
     ASSERT(*(uint8_t*)ImproveSkillLevel_Hook.GetUIntPtr() == 0xE8); // CALL
@@ -646,7 +643,7 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
         SkillCapPatch_Code code(codeBuf);
         g_localTrampoline.EndAlloc(code.getCurr());
 
-        kHook_SkillCapPatch.Hook(code.getCode());
+        kHook_SkillCapPatch.Hook(reinterpret_cast<uintptr_t>(code.getCode()));
     }
 
     {
@@ -669,7 +666,7 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
         ModifyPerkPool_Code code(codeBuf);
         g_localTrampoline.EndAlloc(code.getCurr());
 
-        kHook_ModifyPerkPool.Hook(code.getCode());
+        kHook_ModifyPerkPool.Hook(reinterpret_cast<uintptr_t>(code.getCode()));
     }
 
     {
