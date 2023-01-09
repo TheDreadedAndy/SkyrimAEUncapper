@@ -315,7 +315,7 @@ void Hook_Skill_Commit()
     kHook_ImprovePlayerSkillPoints.Resolve();
     kHook_ImproveLevelExpBySkillLevel.Resolve();
 
-    kHook_GetEffectiveSkillLevel.Hook(SkillEffectiveCapPatch_Wrapper);
+    kHook_GetEffectiveSkillLevel.Hook(reinterpret_cast<uintptr_t>(SkillEffectiveCapPatch_Wrapper));
 /*
 skill? range. min(100,val) and max(0,val). replacing MINSS with nop
        1403fdf2c f3 0f 5d        MINSS      XMM1,dword ptr [DAT_14161af50]                   = 42C80000h
@@ -325,36 +325,7 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
        1403fdf37 f3 0f 5f c8     MAXSS      XMM1,XMM0
 */
 
-#if 0
-    {
-        //fVar14 == XMM10 = 100.0(maximum)
-        //fVar8 == XMM0 < 100.0(current)
-        //ESI SkillId
-        struct SkillCapPatch_Code : Xbyak::CodeGenerator
-        {
-            SkillCapPatch_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
-            {
-                movd(xmm10, ecx); // save ecx in xmm10 just in case. XMM6-XMM15 nonvolatile
-                mov(ecx, esi); // pass SkillId in ecx to hook
-                sub(rsp, 0x30);
-                movss(ptr[rsp + 0x28], xmm0); // save current skill level
-                call((void *)&GetSkillCap_Hook);
-                movd(ecx, xmm10); // restore ecx
-                movss(xmm10, xmm0); // replace maximum with function result
-                movss(xmm0, ptr[rsp + 0x28]); // restore current skill level
-                add(rsp, 0x30);
-                ret();
-            }
-        };
-
-        void * codeBuf = g_localTrampoline.StartAlloc();
-        SkillCapPatch_Code code(codeBuf);
-        g_localTrampoline.EndAlloc(code.getCurr());
-
-        kHook_SkillCapPatch.Hook(reinterpret_cast<uintptr_t>(code.getCode()));
-    }
-#endif
-    //kHook_SkillCapPatch.Hook(SkillCapPatch_Wrapper);
+    kHook_SkillCapPatch.Hook(reinterpret_cast<uintptr_t>(SkillCapPatch_Wrapper));
 
     {
         struct ModifyPerkPool_Code : Xbyak::CodeGenerator

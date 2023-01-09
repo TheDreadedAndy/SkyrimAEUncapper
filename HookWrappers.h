@@ -10,7 +10,7 @@
 
 #include <cstdint>
 
-extern "C" uintptr_t SkillEffectiveCapPatch_Wrapper;
-extern "C" uintptr_t SkillCapPatch_Wrapper;
+extern "C" void SkillEffectiveCapPatch_Wrapper(void);
+extern "C" void SkillCapPatch_Wrapper(void);
 
 #endif /* __SKYRIM_UNCAPPER_AE_HOOK_WRAPPERS_H__ */
