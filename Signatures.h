@@ -52,7 +52,7 @@
  */
 const FunctionSignature kHook_ModifyPerkPoolSig(
     /* name */        "kHook_ModifyPerkPool",
-    /* hook_type */   HookType::Branch5,
+    /* hook_type */   HookType::Call5,
     /* sig */         "48 85 C0 74 ? 66 0F 6E ? 0F 5B C0 F3 0F 58 40 34 F3 0F "
                       "11 40 34 48 83 C4 20 ? C3 48 8B 15 ? ? ? ? 0F B6 8A 09 "
                       "0B 00 00 8B C1 03 ? 78",
@@ -187,7 +187,7 @@ const FunctionSignature kHook_ImproveSkillLevelSig(
 */
 const FunctionSignature kHook_ImprovePlayerSkillPointsSig(
     /* name */        "kHook_ImprovePlayerSkillPoints",
-    /* hook_type */   HookType::Branch5,
+    /* hook_type */   HookType::Branch5, // FIXME: Should probably be a branch6. We got room.
     /* sig */         "48 8B C4 57 41 54 41 55 41 56 41 57 48 81 EC 80 01 00 "
                       "00 48 C7 44 24 48 FE FF FF FF",
     /* patch_size */  6
@@ -197,10 +197,13 @@ const FunctionSignature kHook_ImprovePlayerSkillPointsSig(
  * @brief TODO
  *
  * FIXME: It would probably be more stable to give this its own signature.
+ * 
+ * const unsigned char expectedCode[] = {0xf3, 0x0f, 0x58, 0x08, 0xf3, 0x0f, 0x11, 0x08};
+ * ASSERT(memcmp((void*)(kHook_ImproveLevelExpBySkillLevel.GetUIntPtr()), expectedCode, sizeof(expectedCode)) == 0);
  */
 const FunctionSignature kHook_ImproveLevelExpBySkillLevelSig(
     /* name */        "kHook_ImproveLevelExpBySkillLevel",
-    /* hook_type */   HookType::Branch6,
+    /* hook_type */   HookType::Call6,
     /* sig */         kHook_ImprovePlayerSkillPointsSig.sig,
     /* patch_size */  8,
     /* hook_offset */ 0x2D7
@@ -469,6 +472,14 @@ ulonglong FUN_1403fdf00(longlong *param_1,int param_2)
        1403fdf3e 48 83 c4 20     ADD        RSP,0x20
        1403fdf42 5b              POP        RBX
        1403fdf43 c3              RET
+*/
+/*
+skill? range. min(100,val) and max(0,val). replacing MINSS with nop
+       1403fdf2c f3 0f 5d        MINSS      XMM1,dword ptr [DAT_14161af50]                   = 42C80000h
+                 0d 1c d0
+                 21 01
+       1403fdf34 0f 57 c0        XORPS      XMM0,XMM0
+       1403fdf37 f3 0f 5f c8     MAXSS      XMM1,XMM0
 */
 const FunctionSignature kHook_GetEffectiveSkillLevelSig(
     /* name */        "GetEffectiveSkillLevel",

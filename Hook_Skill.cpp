@@ -5,7 +5,6 @@
 #include "Relocation.h"
 #include "BranchTrampoline.h"
 #include "SafeWrite.h"
-#include "xbyak.h"
 
 #include "Hook_Skill.h"
 #include "HookWrappers.h"
@@ -50,8 +49,17 @@ static RelocFn<_GetEffectiveSkillLevel> kHook_GetEffectiveSkillLevel(&kHook_GetE
 ///@{
 static RelocFn<_GetLevel> GetLevel(&GetLevelSig);
 static RelocFn<_GetBaseActorValue> GetBaseActorValue(&GetBaseActorValueSig);
-static _ImprovePlayerSkillPoints ImprovePlayerSkillPoints_Original = nullptr;
-static _ImproveAttributeWhenLevelUp ImproveAttributeWhenLevelUp_Original = nullptr;
+///@}
+
+/**
+ * @brief Used by the OG game functions we replace to return to their 
+ *        unmodified implementations.
+ */
+///@{
+extern "C" {
+    uintptr_t ImprovePlayerSkillPoints_ReturnTrampoline;
+    uintptr_t ImproveAttributeWhenLevelUp_ReturnTrampoline;
+}
 ///@}
 
 #if 0
@@ -197,7 +205,7 @@ static void ImprovePlayerSkillPoints_Hook(PlayerSkills* skillData, UInt32 skillI
     ImprovePlayerSkillPoints_Original(skillData, skillID, exp, unk1, unk2, unk3, unk4);
 }
 
-static float ImproveLevelExpBySkillLevel_Hook(float exp, UInt32 skillID)
+extern "C" float ImproveLevelExpBySkillLevel_Hook(float exp, UInt32 skillID)
 {
     return exp * settings.GetLevelSkillExpMult(skillID, GetPlayerBaseSkillLevel(skillID), GetPlayerLevel());
 }
@@ -224,7 +232,7 @@ static UInt64 ImproveAttributeWhenLevelUp_Hook(void* unk0, UInt8 unk1)
     return ImproveAttributeWhenLevelUp_Original(unk0, unk1);
 }
 
-static void ModifyPerkPool_Hook(SInt8 count)
+extern "C" void ModifyPerkPool_Hook(SInt8 count)
 {
     UInt8* points = &((*g_thePlayer)->numPerkPoints);
     if (count > 0) { // Add perk points
@@ -308,134 +316,35 @@ void Hook_Skill_Commit()
 {
     _MESSAGE("Do hooks");
 
+    // No hooks. These are just game functions we use.
     GetLevel.Resolve();
     GetBaseActorValue.Resolve();
 
-    // These overlap, so we do them before changing anything.
+    // These overlap, so we resolve them before changing anything.
     kHook_ImprovePlayerSkillPoints.Resolve();
     kHook_ImproveLevelExpBySkillLevel.Resolve();
 
+    // Set up the return trampolines for our reimplemented game function calls.
+    ImprovePlayerSkillPoints_ReturnTrampoline = kHook_ImprovePlayerSkillPoints.GetRetAddr();
+    ImproveAttributeWhenLevelUp_ReturnTrampoline = kHook_ImproveAttributeWhenLevelUp.GetRetAddr();
+
+    // The hooks!
     kHook_GetEffectiveSkillLevel.Hook(reinterpret_cast<uintptr_t>(SkillEffectiveCapPatch_Wrapper));
-/*
-skill? range. min(100,val) and max(0,val). replacing MINSS with nop
-       1403fdf2c f3 0f 5d        MINSS      XMM1,dword ptr [DAT_14161af50]                   = 42C80000h
-                 0d 1c d0
-                 21 01
-       1403fdf34 0f 57 c0        XORPS      XMM0,XMM0
-       1403fdf37 f3 0f 5f c8     MAXSS      XMM1,XMM0
-*/
-
     kHook_SkillCapPatch.Hook(reinterpret_cast<uintptr_t>(SkillCapPatch_Wrapper));
+    kHook_ModifyPerkPool.Hook(reinterpret_cast<uintptr_t>(ModifyPerkPool_Wrapper));
+    kHook_ImproveSkillLevel.Hook(reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Original));
+    kHook_ImproveLevelExpBySkillLevel.Hook(reinterpret_cast<uintptr_t>(ImproveLevelExpBySkillLevel_Wrapper));
+    kHook_ImprovePlayerSkillPoints.Hook(reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Hook));
+    kHook_ImproveAttributeWhenLevelUp.Hook(reinterpret_cast<uintptr_t>(ImproveAttributeWhenLevelUp_Hook));
 
-    {
-        struct ModifyPerkPool_Code : Xbyak::CodeGenerator
-        {
-            ModifyPerkPool_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
-            {
-                Xbyak::Label retnLabel;
-                sub(rsp, 0x20);
-                mov(rcx, rdi); // AE changed rbx to rdi
-                call((void *)&ModifyPerkPool_Hook);
-                add(rsp, 0x20);
-                jmp(ptr[rip + retnLabel]);
-            L(retnLabel);
-                dq(kHook_ModifyPerkPool.GetRetAddr());
-            }
-        };
-
-        void * codeBuf = g_localTrampoline.StartAlloc();
-        ModifyPerkPool_Code code(codeBuf);
-        g_localTrampoline.EndAlloc(code.getCurr());
-
-        kHook_ModifyPerkPool.Hook(reinterpret_cast<uintptr_t>(code.getCode()));
-    }
-
-    {
-        struct ImprovePlayerSkillPoints_Code : Xbyak::CodeGenerator
-        {
-            ImprovePlayerSkillPoints_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
-            {
-                Xbyak::Label retnLabel;
-                mov(rax, rsp); // 48 8b c4
-                push(rdi); // 57
-                push(r12); // 41 54
-                jmp(ptr[rip + retnLabel]);
-            L(retnLabel);
-                dq(kHook_ImprovePlayerSkillPoints.GetRetAddr());
-            }
-        };
-
-        void * codeBuf = g_branchTrampoline.StartAlloc();
-        ImprovePlayerSkillPoints_Code code(codeBuf);
-        g_branchTrampoline.EndAlloc(code.getCurr());
-
-        ImprovePlayerSkillPoints_Original = (_ImprovePlayerSkillPoints)codeBuf;
-        kHook_ImprovePlayerSkillPoints.Hook(reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Hook));
-    }
-
-    {
-        struct ImproveAttributeWhenLevelUp_Code : Xbyak::CodeGenerator
-        {
-            ImproveAttributeWhenLevelUp_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
-            {
-                Xbyak::Label retnLabel;
-                push(rdi);
-                sub(rsp, 0x30);
-                jmp(ptr[rip + retnLabel]);
-            L(retnLabel);
-                dq(kHook_ImproveAttributeWhenLevelUp.GetRetAddr());
-            }
-        };
-        void * codeBuf = g_localTrampoline.StartAlloc();
-        ImproveAttributeWhenLevelUp_Code code(codeBuf);
-        g_localTrampoline.EndAlloc(code.getCurr());
-
-        ImproveAttributeWhenLevelUp_Original = (_ImproveAttributeWhenLevelUp)codeBuf;
-        kHook_ImproveAttributeWhenLevelUp.Hook(reinterpret_cast<uintptr_t>(ImproveAttributeWhenLevelUp_Hook));
-
-        // FIXME: This should probably have its own signature.
-        SafeWrite8(kHook_ImproveAttributeWhenLevelUp.GetUIntPtr() + 0x9B, 0);
+    // FIXME: This should probably have its own signature.
+    SafeWrite8(kHook_ImproveAttributeWhenLevelUp.GetUIntPtr() + 0x9B, 0);
 /*
        1408c4793 ff 50 28        CALL       qword ptr [RAX + 0x28]
        1408c4796 83 7f 18 1a     CMP        dword ptr [RDI + 0x18],0x1a
        1408c479a 75 22           JNZ        LAB_1408c47be
 22 replaced with 0. To disable jump over increasing carry weight if not stamina(0x1a) selected?
 */
-    }
-
-    kHook_ImproveSkillLevel.Hook(reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Original));
-
-    { // Patching skill exp to player level exp modification
-        struct ImproveLevelExpBySkillLevel_Code : Xbyak::CodeGenerator
-        {
-            ImproveLevelExpBySkillLevel_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
-            {
-                Xbyak::Label retnLabel;
-                push(rax);
-                push(rdx);
-                movss(xmm0, xmm1); // xmm1 level exp
-                mov(rdx, rsi);
-                sub(rsp, 0x20);
-                call((void *)&ImproveLevelExpBySkillLevel_Hook);
-                add(rsp, 0x20);
-                pop(rdx);
-                pop(rax);
-                addss(xmm0, ptr[rax]); // replaced code 1, but xmm0 instead of xmm1
-                movss(ptr[rax], xmm0); // replaced code 2
-                jmp(ptr[rip + retnLabel]);
-            L(retnLabel);
-                dq(kHook_ImproveLevelExpBySkillLevel.GetRetAddr());
-            }
-        };
-        void * codeBuf = g_localTrampoline.StartAlloc();
-        ImproveLevelExpBySkillLevel_Code code(codeBuf);
-        g_localTrampoline.EndAlloc(code.getCurr());
-
-        const unsigned char expectedCode[] = {0xf3, 0x0f, 0x58, 0x08, 0xf3, 0x0f, 0x11, 0x08};
-        ASSERT(memcmp((void*)(kHook_ImproveLevelExpBySkillLevel.GetUIntPtr()), expectedCode, sizeof(expectedCode)) == 0);
-
-        kHook_ImproveLevelExpBySkillLevel.Hook(reinterpret_cast<uintptr_t>(code.getCode()));
-    }
 
 #if 0 // not updated code
 

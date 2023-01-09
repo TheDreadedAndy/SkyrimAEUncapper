@@ -60,10 +60,6 @@ static bool SkyrimUncapper_Initialize(const SKSEInterface* skse)
         _ERROR("couldn't create branch trampoline. this is fatal. skipping remainder of init process.");
         return false;
     }
-    if (!g_localTrampoline.Create(1024 * 64, gDllHandle)) {
-        _ERROR("couldn't create codegen buffer. this is fatal. skipping remainder of init process.");
-        return false;
-    }
 
     std::string path;
     if (!GetDllDirWithSlash(path)) {
