@@ -134,7 +134,7 @@ Settings::player_skill_e
 Settings::GetSkillFromId(
     unsigned int skill_id
 ) {
-    ASSERT((kSkillOffset <= skill_id) && (skill_id < (kSkillCount + kSkillOffset)));
+    ASSERT(IsManagedSkill(skill_id));
     return static_cast<player_skill_e>(skill_id - kSkillOffset);
 }
 
@@ -372,6 +372,16 @@ Settings::ReadConfig(
     } else {
         return true;
     }
+}
+
+/**
+ * @brief Checks if the given skill ID is one that this mod interacts with.
+ */
+bool
+Settings::IsManagedSkill(
+    unsigned int skill_id
+) {
+    return (kSkillOffset <= skill_id) && (skill_id < (kSkillOffset + kSkillCount));
 }
 
 /**

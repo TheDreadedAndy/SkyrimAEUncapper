@@ -19,6 +19,10 @@
  * @brief The signature and offset used to hook into the perk pool modification
  *        routine.
  *
+ * Upon entry into our hook, we run our function. We then reimplement the final
+ * few instructions in the return path of the function we hooked into. This way,
+ * we need only modify one instruction and can still use the RelocFn interface.
+ * 
  * The assembly for this signature is as follows:
  * 48 85 c0        TEST       RAX,RAX
  * 74 34           JZ         LAB_1408f678f
@@ -33,7 +37,7 @@
  * 5f              POP        RDI
  * c3              RET
  * LAB_1408f6772   XREF[1]:     1408f671f(j)
- * ### kHook_ModifyPerkPool (entry) ###
+ * ### kHook_ModifyPerkPool (redirect; does not return here) ###
  * 48 8b 15        MOV        RDX,qword ptr [DAT_142fc19c8]
  * 4f b2 6c 02
  * 0f b6 8a        MOVZX      ECX,byte ptr [RDX + 0xb01]
@@ -46,17 +50,16 @@
  * 0b 00 00
  * LAB_1408f678f   XREF[2]:     1408f6759(j), 1408f6784(j)
  * 48 83 c4 20     ADD        RSP,0x20
- * ### kHook_ModifyPerkPool (return) ###
  * 5f              POP        RDI
  * c3              RET
  */
 const FunctionSignature kHook_ModifyPerkPoolSig(
     /* name */        "kHook_ModifyPerkPool",
-    /* hook_type */   HookType::Call5,
+    /* hook_type */   HookType::Branch6,
     /* sig */         "48 85 C0 74 ? 66 0F 6E ? 0F 5B C0 F3 0F 58 40 34 F3 0F "
                       "11 40 34 48 83 C4 20 ? C3 48 8B 15 ? ? ? ? 0F B6 8A 09 "
                       "0B 00 00 8B C1 03 ? 78",
-    /* patch_size */  0x1D,
+    /* patch_size */  7,
     /* hook_offset */ 0x1C
 );
 
@@ -108,7 +111,7 @@ const FunctionSignature kHook_ModifyPerkPoolSig(
  */
 const FunctionSignature kHook_SkillCapPatchSig(
     /* name */        "kHook_SkillCapPatch",
-    /* hook_type */   HookType::Call5,
+    /* hook_type */   HookType::Call6,
     /* sig */         "48 8B 0D ? ? ? ? 48 81 C1 B8 00 00 00 48 8B 01 FF 50 "
                       "18 44 0F 28 C0",
     /* patch_size */  9,
@@ -157,11 +160,11 @@ Calls ImprovePlayerSkillPoints offset:0x14070ee08-0x1406ca9b0=0x44458
 */
 const FunctionSignature kHook_ImproveSkillLevelSig(
     /* name */        "kHook_ImproveSkillLevel",
-    /* hook_type */   HookType::DirectCall,
+    /* hook_type */   HookType::Call5,
     /* sig */         "F3 0F 10 54 9F 10 41 3B F4 F3 0F 5C 54 9F 0C 0F 92 C0 "
                       "8B D5 88 44 24 30 45 33 C9 44 88 6C 24 28 49 8B CF 44 "
                       "89 6C 24 20 E8 73 FB FF FF FF C6 41 3B F6 72 CC",
-    /* patch_size */  kDirectCallPatchSize,
+    /* patch_size */  5,
     /* hook_offset */ (0x14070ee08 - 0x14070ede0)
 );
 
@@ -187,7 +190,7 @@ const FunctionSignature kHook_ImproveSkillLevelSig(
 */
 const FunctionSignature kHook_ImprovePlayerSkillPointsSig(
     /* name */        "kHook_ImprovePlayerSkillPoints",
-    /* hook_type */   HookType::Branch5, // FIXME: Should probably be a branch6. We got room.
+    /* hook_type */   HookType::Branch6,
     /* sig */         "48 8B C4 57 41 54 41 55 41 56 41 57 48 81 EC 80 01 00 "
                       "00 48 C7 44 24 48 FE FF FF FF",
     /* patch_size */  6
@@ -441,7 +444,7 @@ FUN_1403d8870
 /**
  * @brief TODO
  *
- * FIXME
+ * FIXME: This hook doesn't seem to be working.
  *
 Before AE
 undefined8 FUN_1403e5250(longlong *param_1,int param_2)
@@ -463,6 +466,7 @@ ulonglong FUN_1403fdf00(longlong *param_1,int param_2)
        1403fdf25 c1 e8 04        SHR        EAX,0x4
        1403fdf28 a8 01           TEST       AL,0x1
        1403fdf2a 74 18           JZ         LAB_1403fdf44
+       ### OUR ENTRY POINT ###
        1403fdf2c f3 0f 5d        MINSS      XMM1,dword ptr [DAT_14161af50]                   = 42C80000h
                  0d 1c d0
                  21 01
@@ -487,7 +491,7 @@ const FunctionSignature kHook_GetEffectiveSkillLevelSig(
     /* sig */         "40 53 48 83 EC 20 48 8B 01 48 63 DA 8B D3 FF 50 08 48 "
                       "8B 05 ? ? ? ? 0F 28 C8 48 8B 4C D8 08 8B 51 60 8B C2 "
                       "C1 E8 04 A8 01 74 18 F3 0F 5D 0D",
-    /* patch_size */  6,
+    /* patch_size */  8,
     /* hook_offset */ 0x2C
 );
 

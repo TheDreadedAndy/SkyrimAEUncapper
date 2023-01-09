@@ -54,6 +54,8 @@ static RelocFn<_GetBaseActorValue> GetBaseActorValue(&GetBaseActorValueSig);
 /**
  * @brief Used by the OG game functions we replace to return to their 
  *        unmodified implementations.
+ * 
+ * Boing!
  */
 ///@{
 extern "C" {
@@ -95,7 +97,7 @@ GetPlayerBaseSkillLevel(
     unsigned int skill_id
 ) {
     return static_cast<unsigned int>(
-        GetBaseActorValue((char*)(g_thePlayer.GetUIntPtr() + 0xB8), skill_id)
+        GetBaseActorValue(reinterpret_cast<char*>(*g_thePlayer) + 0xB8, skill_id)
     );
 }
 
@@ -104,7 +106,7 @@ GetPlayerBaseSkillLevel(
  */
 static unsigned int
 GetPlayerLevel() {
-    return GetLevel(g_thePlayer.GetPtr());
+    return GetLevel(*g_thePlayer);
 }
 
 #if 0
@@ -201,13 +203,20 @@ void ImproveSkillLevel_Hook(void* pPlayer, UInt32 skillID, UInt32 count)
 
 static void ImprovePlayerSkillPoints_Hook(PlayerSkills* skillData, UInt32 skillID, float exp, UInt64 unk1, UInt32 unk2, UInt8 unk3, bool unk4)
 {
-    exp *= settings.GetSkillExpGainMult(skillID, GetPlayerBaseSkillLevel(skillID), GetPlayerLevel());
+    if (settings.IsManagedSkill(skillID)) {
+        exp *= settings.GetSkillExpGainMult(skillID, GetPlayerBaseSkillLevel(skillID), GetPlayerLevel());
+    }
+
     ImprovePlayerSkillPoints_Original(skillData, skillID, exp, unk1, unk2, unk3, unk4);
 }
 
 extern "C" float ImproveLevelExpBySkillLevel_Hook(float exp, UInt32 skillID)
 {
-    return exp * settings.GetLevelSkillExpMult(skillID, GetPlayerBaseSkillLevel(skillID), GetPlayerLevel());
+    if (settings.IsManagedSkill(skillID)) {
+        exp *= settings.GetLevelSkillExpMult(skillID, GetPlayerBaseSkillLevel(skillID), GetPlayerLevel());
+    }
+
+    return exp;
 }
 
 static UInt64 ImproveAttributeWhenLevelUp_Hook(void* unk0, UInt8 unk1)

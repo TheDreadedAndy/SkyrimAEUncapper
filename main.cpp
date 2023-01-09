@@ -54,13 +54,14 @@ static bool SkyrimUncapper_Initialize(const SKSEInterface* skse)
     void* imgBase = GetModuleHandle(NULL);
     _MESSAGE("Compiled skse:0x%08X runtime:0x%08X. Now skse:0x%08X runtime:0x%08X", (unsigned)PACKED_SKSE_VERSION, (unsigned)CURRENT_RELEASE_RUNTIME, (unsigned)skse->skseVersion, (unsigned)skse->runtimeVersion);
     _MESSAGE("imagebase = %016I64X", imgBase);
-    _MESSAGE("gDllHandle = %016I64X", gDllHandle);
 
-    if (!g_branchTrampoline.Create(1024 * 64, imgBase)) {
+    // We only have a few hooks, so a small trampoline buffer is fine.
+    // This will need to be increased if many more hooks are added (> ~15).
+    if (!g_branchTrampoline.Create(128, imgBase)) {
         _ERROR("couldn't create branch trampoline. this is fatal. skipping remainder of init process.");
         return false;
     }
-
+    
     std::string path;
     if (!GetDllDirWithSlash(path)) {
         return false;

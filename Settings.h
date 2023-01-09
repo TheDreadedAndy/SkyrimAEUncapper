@@ -334,6 +334,7 @@ class Settings {
     Settings();
     bool ReadConfig(const std::string& path);
 
+    bool IsManagedSkill(unsigned int skill_id);
     float GetSkillCap(unsigned int skill_id);
     float GetSkillFormulaCap(unsigned int skill_id);
     unsigned int GetPerkDelta(unsigned int player_level);
