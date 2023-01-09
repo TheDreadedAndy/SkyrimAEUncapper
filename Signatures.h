@@ -13,7 +13,7 @@
 
 #include <cstddef>
 
-#include <RelocFn.h>
+#include "RelocFn.h"
 
 /**
  * @brief The signature and offset used to hook into the perk pool modification
@@ -50,7 +50,7 @@
  * 5f              POP        RDI
  * c3              RET
  */
-const FunctionSignature kModifyPerkPoolSig(
+const FunctionSignature kHook_ModifyPerkPoolSig(
     /* name */        "kHook_ModifyPerkPool",
     /* hook_type */   HookType::Branch5,
     /* sig */         "48 85 C0 74 ? 66 0F 6E ? 0F 5B C0 F3 0F 58 40 34 F3 0F "
@@ -161,7 +161,7 @@ const FunctionSignature kHook_ImproveSkillLevelSig(
     /* sig */         "F3 0F 10 54 9F 10 41 3B F4 F3 0F 5C 54 9F 0C 0F 92 C0 "
                       "8B D5 88 44 24 30 45 33 C9 44 88 6C 24 28 49 8B CF 44 "
                       "89 6C 24 20 E8 73 FB FF FF FF C6 41 3B F6 72 CC",
-    /* patch_size */  HookType::kDirectCallSize,
+    /* patch_size */  kDirectCallPatchSize,
     /* hook_offset */ (0x14070ee08 - 0x14070ede0)
 );
 

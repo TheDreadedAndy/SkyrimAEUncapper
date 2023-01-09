@@ -409,7 +409,7 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
                 push(r12); // 41 54
                 jmp(ptr[rip + retnLabel]);
             L(retnLabel);
-                dq(kHook_ImprovePlayerSkillPoints.GetRetPtr());
+                dq(kHook_ImprovePlayerSkillPoints.GetRetAddr());
             }
         };
 
@@ -431,7 +431,7 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
                 sub(rsp, 0x30);
                 jmp(ptr[rip + retnLabel]);
             L(retnLabel);
-                dq(kHook_ImproveAttributeWhenLevelUp.GetRetPtr());
+                dq(kHook_ImproveAttributeWhenLevelUp.GetRetAddr());
             }
         };
         void * codeBuf = g_localTrampoline.StartAlloc();
@@ -472,7 +472,7 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
                 movss(ptr[rax], xmm0); // replaced code 2
                 jmp(ptr[rip + retnLabel]);
             L(retnLabel);
-                dq(kHook_ImproveLevelExpBySkillLevel.GetRetPtr());
+                dq(kHook_ImproveLevelExpBySkillLevel.GetRetAddr());
             }
         };
         void * codeBuf = g_localTrampoline.StartAlloc();
@@ -480,16 +480,16 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
         g_localTrampoline.EndAlloc(code.getCurr());
 
         const unsigned char expectedCode[] = {0xf3, 0x0f, 0x58, 0x08, 0xf3, 0x0f, 0x11, 0x08};
-        ASSERT(memcmp((void*)(ImprovePlayerSkillPoints.GetUIntPtr() + entOffset), expectedCode, sizeof(expectedCode)) == 0);
+        ASSERT(memcmp((void*)(kHook_ImproveLevelExpBySkillLevel.GetUIntPtr()), expectedCode, sizeof(expectedCode)) == 0);
 
         kHook_ImproveLevelExpBySkillLevel.Hook(reinterpret_cast<uintptr_t>(code.getCode()));
     }
 
 #if 0 // not updated code
 
-    //g_branchTrampoline.Write6Branch(CalculateChargePointsPerUse_Original.GetUIntPtr(), (uintptr_t)CalculateChargePointsPerUse_Hook);
+    g_branchTrampoline.Write6Branch(CalculateChargePointsPerUse_Original.GetUIntPtr(), (uintptr_t)CalculateChargePointsPerUse_Hook);
 
-    /*{
+    {
         struct GetCurrentActorValue_Code : Xbyak::CodeGenerator
         {
             GetCurrentActorValue_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
@@ -516,9 +516,9 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
 
         g_branchTrampoline.Write6Branch(GetCurrentActorValue.GetUIntPtr(), (uintptr_t)GetCurrentActorValue_Hook);
 
-    }*/
+    }
 
-    /*{
+    {
         struct ExecuteLegendarySkill_Code : Xbyak::CodeGenerator
         {
             ExecuteLegendarySkill_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)

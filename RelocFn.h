@@ -37,40 +37,51 @@ const size_t kMaxInstrSize = 15;
 /// @brief The opcode for an x86 NOP.
 const uint8_t kNop = 0x90;
 
+/// @brief Patch sizes for direct hooks.
+///@{
+const size_t kDirectCallPatchSize = 5;
+const size_t kDirectJumpPatchSize = 5;
+///@}
+
 /// @brief Encodes the various types of hooks which can be injected.
 class HookType {
 public:
-    const size_t kDirectCallPatchSize = 5;
-    const size_t kDirectJumpPatchSize = 5;
-
     enum t { None, Branch5, Branch6, Call5, Call6, DirectCall, DirectJump };
 
     static size_t
-        Size(
-            t type
-        ) {
+    Size(
+        t type
+    ) {
+        size_t ret = 0;
+
         switch (type) {
             case Branch5:
             case Call5:
-                return 5;
+                ret = 5;
+                break;
             case Branch6:
             case Call6:
-                return 6;
+                ret = 6;
+                break;
             case DirectCall:
-                return kDirectCallPatchSize;
+                ret = kDirectCallPatchSize;
+                break;
             case DirectJump:
-                return kDirectJumpPatchSize;
+                ret = kDirectJumpPatchSize;
+                break;
             default:
                 HALT("Cannot get the size of an invalid hook type.");
         }
+
+        return ret;
     }
 };
 
 /// @brief Describes a function to be hooked into by a RelocFn<T>.
 struct FunctionSignature {
-    const char *name;
+    const char* name;
     HookType::t hook_type;
-    const char *sig;
+    const char* sig;
     size_t patch_size;
     ptrdiff_t hook_offset;
     ptrdiff_t indirect_offset;
@@ -89,9 +100,9 @@ struct FunctionSignature {
      *                   or 0.
      */
     FunctionSignature(
-        const char *name,
+        const char* name,
         HookType::t hook_type,
-        const char *sig,
+        const char* sig,
         size_t patch_size,
         size_t hook_offset = 0,
         size_t indirect_offset = 0,
@@ -104,7 +115,7 @@ struct FunctionSignature {
         indirect_offset(indirect_offset),
         instr_size(instr_size)
     {}
-}
+};
 
 template<typename T>
 class RelocFn {
@@ -129,6 +140,13 @@ class RelocFn {
     T *operator->() {
         Resolve();
         return reinterpret_cast<T*>(real_address);
+    }
+
+    /**
+     * @brief Allows functions contained as T to be called directly through this class.
+     */
+    operator T() {
+        return reinterpret_cast<T>(real_address);
     }
 
     /**
