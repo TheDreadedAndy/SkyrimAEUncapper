@@ -33,10 +33,13 @@ class LeveledSetting {
     std::vector<LevelItem> list;
 
   public:
+    LeveledSetting() : list(0) {}
+
     /**
      * @brief Adds an item to the leveled setting list.
      *
-     * The given level must not already be within the list.
+     * If the given item is already in the setting list, it will not be added
+     * again.
      *
      * @param level The level for the item.
      * @param item The item to be added.
@@ -48,14 +51,15 @@ class LeveledSetting {
     ) {
         // Store the items in sorted order, so we can binary search for the
         // nearest later.
-        size_t lo = 0, hi = list.size() - 1;
+        size_t lo = 0, hi = list.size();
         size_t mid = lo + ((hi - lo) >> 1);
         while (lo < hi) {
             if (level < list[mid].level) {
                 hi = mid;
+            } else if (level > list[mid].level) {
+                lo = mid + 1;
             } else {
-                ASSERT(level > list[mid].level);
-                lo = mid;
+                return;
             }
 
             mid = lo + ((hi - lo) >> 1);
@@ -80,15 +84,17 @@ class LeveledSetting {
     ) {
         ASSERT(list.size() > 0);
 
-        size_t lo = 0, hi = list.size() - 1;
+        size_t lo = 0, hi = list.size();
         size_t mid = lo + ((hi - lo) >> 1);
         while (lo < hi) {
-            if (level < list[mid].level) {
-                hi = mid;
-            } else if (level > list[mid].level) {
-                lo = mid;
-            } else {
+            if ((list[mid].level <= level)
+                    && ((mid + 1 == list.size()) || (level < list[mid + 1].level))) {
                 return list[mid].item;
+            } else if (level < list[mid].level) {
+                hi = mid;
+            } else {
+                ASSERT((level > list[mid].level) || (level >= list[mid + 1].level));
+                lo = mid + 1;
             }
 
             mid = lo + ((hi - lo) >> 1);
@@ -116,7 +122,7 @@ class LeveledSetting {
 
         size_t plevel = 0;
         T pacc = 0, acc = 0;
-        for (size_t i = 0; (list[i].level <= level) && (i < list.size()); i++) {
+        for (size_t i = 0; (i < list.size()) && (list[i].level <= level); i++) {
             // Update the accumulation.
             unsigned int this_level = (level < list[i].level) ? level : list[i].level;
             acc += (this_level - plevel) * list[i].item;
