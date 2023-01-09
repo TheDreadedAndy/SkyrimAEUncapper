@@ -53,5 +53,13 @@
     <ClInclude Include="RelocFn.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="HookWrappers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="HookWrappers.S">
+      <Filter>Source Files</Filter>
+    </MASM>
   </ItemGroup>
 </Project>

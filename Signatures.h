@@ -108,7 +108,7 @@ const FunctionSignature kHook_ModifyPerkPoolSig(
  */
 const FunctionSignature kHook_SkillCapPatchSig(
     /* name */        "kHook_SkillCapPatch",
-    /* hook_type */   HookType::Branch5,
+    /* hook_type */   HookType::Call5,
     /* sig */         "48 8B 0D ? ? ? ? 48 81 C1 B8 00 00 00 48 8B 01 FF 50 "
                       "18 44 0F 28 C0",
     /* patch_size */  9,

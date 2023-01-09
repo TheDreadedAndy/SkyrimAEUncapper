@@ -8,6 +8,7 @@
 #include "xbyak.h"
 
 #include "Hook_Skill.h"
+#include "HookWrappers.h"
 #include "Settings.h"
 #include "Signatures.h"
 #include "RelocFn.h"
@@ -235,12 +236,12 @@ static void ModifyPerkPool_Hook(SInt8 count)
     }
 }
 
-static float GetSkillCap_Hook(UInt32 skillID)
+extern "C" float GetSkillCap_Hook(UInt32 skillID)
 {
     return settings.GetSkillCap(skillID);
 }
 
-static float ClampSkillEffect(uint32_t skillID, const float val)
+extern "C" float ClampSkillEffect(uint32_t skillID, const float val)
 {
     float cap = settings.GetSkillFormulaCap(skillID);
     return (val <= 0) ? 0 : ((val >= cap) ? cap : val);
@@ -314,27 +315,7 @@ void Hook_Skill_Commit()
     kHook_ImprovePlayerSkillPoints.Resolve();
     kHook_ImproveLevelExpBySkillLevel.Resolve();
 
-    //Before AE SafeWrite16(GetEffectiveSkillLevel.GetUIntPtr() + 0x34, 0x9090);
-    //unsigned char nop[] = {0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90};
-    //SafeWriteBuf(GetEffectiveSkillLevel.GetUIntPtr() + 0x2C, &nop, sizeof(nop));
-    {
-        struct SkillEffectiveCapPatch_Code : Xbyak::CodeGenerator
-        {
-            SkillEffectiveCapPatch_Code(void* bufPtr) : Xbyak::CodeGenerator(4096, bufPtr)
-            {
-                mov(rcx, rbx); // pass id from rbx as first arg, xmm0 and xmm1 has current value
-                call((void *)&ClampSkillEffect);
-                add(rsp, 0x20); // Original ret code
-                pop(rbx);
-                ret();
-            }
-        };
-        void* codeBuf = g_localTrampoline.StartAlloc();
-        SkillEffectiveCapPatch_Code code(codeBuf);
-        g_localTrampoline.EndAlloc(code.getCurr());
-
-        kHook_GetEffectiveSkillLevel.Hook(reinterpret_cast<uintptr_t>(code.getCode()));
-    }
+    kHook_GetEffectiveSkillLevel.Hook(SkillEffectiveCapPatch_Wrapper);
 /*
 skill? range. min(100,val) and max(0,val). replacing MINSS with nop
        1403fdf2c f3 0f 5d        MINSS      XMM1,dword ptr [DAT_14161af50]                   = 42C80000h
@@ -344,6 +325,7 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
        1403fdf37 f3 0f 5f c8     MAXSS      XMM1,XMM0
 */
 
+#if 0
     {
         //fVar14 == XMM10 = 100.0(maximum)
         //fVar8 == XMM0 < 100.0(current)
@@ -352,7 +334,6 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
         {
             SkillCapPatch_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
             {
-                Xbyak::Label retnLabel;
                 movd(xmm10, ecx); // save ecx in xmm10 just in case. XMM6-XMM15 nonvolatile
                 mov(ecx, esi); // pass SkillId in ecx to hook
                 sub(rsp, 0x30);
@@ -362,9 +343,7 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
                 movss(xmm10, xmm0); // replace maximum with function result
                 movss(xmm0, ptr[rsp + 0x28]); // restore current skill level
                 add(rsp, 0x30);
-                jmp(ptr[rip + retnLabel]); // jump to cur and max cmp
-            L(retnLabel);
-                dq(kHook_SkillCapPatch.GetRetAddr());
+                ret();
             }
         };
 
@@ -374,6 +353,8 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
 
         kHook_SkillCapPatch.Hook(reinterpret_cast<uintptr_t>(code.getCode()));
     }
+#endif
+    //kHook_SkillCapPatch.Hook(SkillCapPatch_Wrapper);
 
     {
         struct ModifyPerkPool_Code : Xbyak::CodeGenerator

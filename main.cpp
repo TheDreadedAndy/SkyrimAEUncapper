@@ -85,8 +85,8 @@ extern "C" {
         SKSEPluginVersionData::kVersion,
         1, // version number of your plugin
         "SkyrimUncapperAE",
-        "", // name
-        "", // support@example.com
+        "Andrew Spaulding (Kasplat)", // name
+        "andyespaulding@gmail.com", // support@example.com
         0, // kVersionIndependentEx_NoStructUse
         SKSEPluginVersionData::kVersionIndependent_Signatures | SKSEPluginVersionData::kVersionIndependent_StructsPost629,
         {0}, // works with any version of the script extender. you probably do not need to put anything here
