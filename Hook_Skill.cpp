@@ -1,11 +1,11 @@
 // FIXME: Using the SKSE pointers for the player and game settings kills
 // version independence.
 
-#include "GameFormComponents.h"
+#include "Hook_Skill.h"
+
 #include "GameReferences.h"
 #include "GameSettings.h"
 
-#include "Hook_Skill.h"
 #include "HookWrappers.h"
 #include "Settings.h"
 #include "RelocFn.h"
@@ -205,6 +205,9 @@ ModifyPerkPool_Hook(
     }
 }
 
+/**
+ * @brief Determines the real skill cap of the given skill.
+ */
 extern "C" float
 GetSkillCap_Hook(
     UInt32 skill_id
@@ -212,6 +215,10 @@ GetSkillCap_Hook(
     return settings.GetSkillCap(skill_id);
 }
 
+/**
+ * @brief Caps the formulas for the given skill_id to the value specified in
+ *        the INI file.
+ */
 float
 GetEffectiveSkillLevel_Hook(
     void *av,

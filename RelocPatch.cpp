@@ -24,7 +24,6 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "common/IErrors.h"
 #include "BranchTrampoline.h"
 #include "SafeWrite.h"
 #include "reg2k/RVA.h"
