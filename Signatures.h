@@ -350,46 +350,6 @@ const PatchSignature GetLevelSig(
 #endif
 
 /**
- * @brief Hooks into the GetCurrentActorValue function to clamp its result.
- *
- * This patch simply tails into our GetCurrentActorValue_Hook() function. We
- * Additionally provide a GetCurrentActorValue_Original function which skips
- * our hook and performs the code our hook replaced. Note that the original
- * function cannot be used until the GetCurrentActorValue_ReturnTrampoline has
- * been set to the value determined by the patch.
- *
- * The assembly we are replacing is as follows:
- * ### HOOK REDIRECTS FROM HERE ###
- * 48 89 5c 24 08           mov    %rbx,0x8(%rsp)
- * 48 89 74 24 18           mov    %rsi,0x18(%rsp)
- * ### END HOOK ###
- * 57                       push   %rdi
- * 48 83 ec 30              sub    $0x30,%rsp
- * 48 8b 05 62 fb 8f 01     mov    0x18ffb62(%rip),%rax        # 0x141f58128
- * 48 8b d9                 mov    %rcx,%rbx
- * 48 63 fa                 movslq %edx,%rdi
- * 4c 8b 44 f8 08           mov    0x8(%rax,%rdi,8),%r8
- * 41 8b 40 60              mov    0x60(%r8),%eax
- * c1 e8 13                 shr    $0x13,%eax
- * a8 01                    test   $0x1,%al
- * 74 46                    je     0x140658622
- * 48 8b 49 40              mov    0x40(%rcx),%rcx
- * 48 85 c9                 test   %rcx,%rcx
- * 74 3d                    je     0x140658622
- * 48 83 79 50 00           cmpq   $0x0,0x50(%rcx)
- * 74 36                    je     0x140658622
- */
-const PatchSignature kHook_GetCurrentActorValueSig(
-    /* name */        "GetCurrentActorValue",
-    /* hook_type */   HookType::Branch6,
-    /* sig */         "48 89 5c 24 08 48 89 74 24 18 57 48 83 ec 30 48 8b 05 "
-                      "? ? ? ? 48 8b d9 48 63 fa 4c 8b 44 f8 08 41 8b 40 60 "
-                      "c1 e8 13 a8 01 74 46 48 8b 49 40 48 85 c9 74 3d 48 83 "
-                      "79 50 00 74 36",
-    /* patch_size */  10
-);
-
-/**
  * @brief TODO
  *
  * FIXME
@@ -470,91 +430,49 @@ FUN_1403d8870
 #endif
 
 /**
- * @brief TODO
+ * @brief Caps the effective skill level in calculations by always returning
+ *        a damaged result.
  *
- * FIXME: This hook doesn't seem to be working.
+ * This patch redirects to our hook, with an assembly wrapper allowing the
+ * hook to call the original implementation. The assembly wrapper reimplements
+ * the first 6 bytes, then jumps to the instruction after the hook.
  *
- * Ok, so heres the shit. It seems this hook originally just killed the MIN
- * (I think, I don't have access to all of the OG code). Then, a different
- * hook was used to actually cap the formulas. I'm going to try to bring that
- * original, working, implementation back. Step one is to replace this hook
- * with one that just NOPs the MINSS out.
- *
-Before AE
-undefined8 FUN_1403e5250(longlong *param_1,int param_2)
-After AE
-ulonglong FUN_1403fdf00(longlong *param_1,int param_2)
-       1403fdf00 40 53           PUSH       RBX
-       1403fdf02 48 83 ec 20     SUB        RSP,0x20
-       1403fdf06 48 8b 01        MOV        RAX,qword ptr [RCX]
-       1403fdf09 48 63 da        MOVSXD     RBX,EDX
-       1403fdf0c 8b d3           MOV        EDX,EBX
-       1403fdf0e ff 50 08        CALL       qword ptr [RAX + 0x8]
-       1403fdf11 48 8b 05        MOV        RAX,qword ptr [DAT_141f58c18]                    = ??
-                 00 ad b5 01
-       1403fdf18 0f 28 c8        MOVAPS     XMM1,XMM0
-       1403fdf1b 48 8b 4c        MOV        RCX,qword ptr [RAX + RBX*0x8 + 0x8]
-                 d8 08
-       1403fdf20 8b 51 60        MOV        EDX,dword ptr [RCX + 0x60]
-       1403fdf23 8b c2           MOV        EAX,EDX
-       1403fdf25 c1 e8 04        SHR        EAX,0x4
-       1403fdf28 a8 01           TEST       AL,0x1
-       1403fdf2a 74 18           JZ         LAB_1403fdf44
-       ### OVERWRITTEN WITH NOPS ###
-       1403fdf2c f3 0f 5d        MINSS      XMM1,dword ptr [DAT_14161af50]                   = 42C80000h
-                 0d 1c d0
-                 21 01
-       ### END OVERWRITE ###
-       1403fdf34 0f 57 c0        XORPS      XMM0,XMM0
-       1403fdf37 f3 0f 5f c8     MAXSS      XMM1,XMM0
-       1403fdf3b 0f 28 c1        MOVAPS     XMM0,XMM1
-       1403fdf3e 48 83 c4 20     ADD        RSP,0x20
-       1403fdf42 5b              POP        RBX
-       1403fdf43 c3              RET
-*/
-/*
-skill? range. min(100,val) and max(0,val). replacing MINSS with nop
-       1403fdf2c f3 0f 5d        MINSS      XMM1,dword ptr [DAT_14161af50]                   = 42C80000h
-                 0d 1c d0
-                 21 01
-       1403fdf34 0f 57 c0        XORPS      XMM0,XMM0
-       1403fdf37 f3 0f 5f c8     MAXSS      XMM1,XMM0
-*/
-/*
-* New hook. Actual root function?
-* 00007FF64A628440 4C 8B DC             mov         r11,rsp
-00007FF64A628443 55                   push        rbp
-00007FF64A628444 56                   push        rsi
-00007FF64A628445 57                   push        rdi
-00007FF64A628446 41 56                push        r14
-00007FF64A628448 41 57                push        r15
-00007FF64A62844A 48 83 EC 50          sub         rsp,50h
-00007FF64A62844E 49 C7 43 A8 FE FF FF FF mov         qword ptr [r11-58h],0FFFFFFFFFFFFFFFEh
-00007FF64A628456 49 89 5B 08          mov         qword ptr [r11+8],rbx
-00007FF64A62845A 0F 29 74 24 40       movaps      xmmword ptr [rsp+40h],xmm6
-00007FF64A62845F 0F 29 7C 24 30       movaps      xmmword ptr [rsp+30h],xmm7
-00007FF64A628464 48 63 F2             movsxd      rsi,edx
-00007FF64A628467 48 8B F9             mov         rdi,rcx
-00007FF64A62846A 48 8B 05 B7 FC 8F 01 mov         rax,qword ptr [7FF64BF28128h]
-00007FF64A628471 4C 8B 44 F0 08       mov         r8,qword ptr [rax+rsi*8+8]
-00007FF64A628476 41 8B 40 60          mov         eax,dword ptr [r8+60h]
-00007FF64A62847A C1 E8 12             shr         eax,12h
-00007FF64A62847D A8 01                test        al,1
-00007FF64A62847F 74 3F                je          00007FF64A6284C0
-00007FF64A628481 48 8B 49 40          mov         rcx,qword ptr [rcx+40h]
-00007FF64A628485 48 85 C9             test        rcx,rcx
-00007FF64A628488 74 36                je          00007FF64A6284C0
-00007FF64A62848A 48 83 79 50 00       cmp         qword ptr [rcx+50h],0
-00007FF64A62848F 74 2F                je          00007FF64A6284C0
-00007FF64A628491 40 B5 01             mov         bpl,1
-*/
+ * The assembly signature for the function is as follows:
+ * 4C 8B DC             mov         r11,rsp
+ * 55                   push        rbp
+ * 56                   push        rsi
+ * 57                   push        rdi
+ * 41 56                push        r14
+ * 41 57                push        r15
+ * 48 83 EC 50          sub         rsp,50h
+ * 49 C7 43 A8 FE FF FF mov         qword ptr [r11-58h],0FFFFFFFFFFFFFFFEh
+ * FF
+ * 49 89 5B 08          mov         qword ptr [r11+8],rbx
+ * 0F 29 74 24 40       movaps      xmmword ptr [rsp+40h],xmm6
+ * 0F 29 7C 24 30       movaps      xmmword ptr [rsp+30h],xmm7
+ * 48 63 F2             movsxd      rsi,edx
+ * 48 8B F9             mov         rdi,rcx
+ * 48 8B 05 B7 FC 8F 01 mov         rax,qword ptr [7FF64BF28128h]
+ * 4C 8B 44 F0 08       mov         r8,qword ptr [rax+rsi*8+8]
+ * 41 8B 40 60          mov         eax,dword ptr [r8+60h]
+ * C1 E8 12             shr         eax,12h
+ * A8 01                test        al,1
+ * 74 3F                je          00007FF64A6284C0
+ * 48 8B 49 40          mov         rcx,qword ptr [rcx+40h]
+ * 48 85 C9             test        rcx,rcx
+ * 74 36                je          00007FF64A6284C0
+ * 48 83 79 50 00       cmp         qword ptr [rcx+50h],0
+ * 74 2F                je          00007FF64A6284C0
+ * 40 B5 01             mov         bpl,1
+ */
 const PatchSignature kHook_GetEffectiveSkillLevelSig(
     /* name */        "GetEffectiveSkillLevel",
     /* hook_type */   HookType::Branch6,
-    /* sig */         /*"40 53 48 83 EC 20 48 8B 01 48 63 DA 8B D3 FF 50 08 48 "
-                      "8B 05 ? ? ? ? 0F 28 C8 48 8B 4C D8 08 8B 51 60 8B C2 "
-                      "C1 E8 04 A8 01 74 18 F3 0F 5D 0D",*/
-                      "4C 8B DC 55 56 57 41 56 41 57 48 83 EC 50 49 C7 43 A8 FE FF FF FF 49 89 5B 08 0F 29 74 24 40 0F 29 7C 24 30 48 63 F2 48 8B F9 48 8B 05 ? ? ? ? 4C 8B 44 F0 08 41 8B 40 60 C1 E8 12 A8 01 74 3F 48 8B 49 40 48 85 C9 74 36 48 83 79 50 00 74 2F 40 B5 01",
+    /* sig */         "4C 8B DC 55 56 57 41 56 41 57 48 83 EC 50 49 C7 43 A8 "
+                      "FE FF FF FF 49 89 5B 08 0F 29 74 24 40 0F 29 7C 24 30 "
+                      "48 63 F2 48 8B F9 48 8B 05 ? ? ? ? 4C 8B 44 F0 08 41 "
+                      "8B 40 60 C1 E8 12 A8 01 74 3F 48 8B 49 40 48 85 C9 74 "
+                      "36 48 83 79 50 00 74 2F 40 B5 01",
     /* patch_size */  6
 );
 

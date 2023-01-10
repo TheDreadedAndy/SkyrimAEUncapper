@@ -1,3 +1,6 @@
+// FIXME: Using the SKSE pointers for the player and game settings kills
+// version independence.
+
 #include "common/IPrefix.h"
 #include "GameFormComponents.h"
 #include "GameReferences.h"
@@ -24,7 +27,6 @@ typedef UInt64(*_ImproveAttributeWhenLevelUp)(void*, UInt8);
 typedef bool(*_GetSkillCoefficients)(UInt32, float*, float*, float*, float*);
 typedef UInt16(*_GetLevel)(void* pPlayer);
 typedef float(*_ImproveLevelExpBySkillLevel)(float skillLevel);
-typedef float(*_GetCurrentActorValue)(void*, UInt32);
 typedef float(*_GetBaseActorValue)(void*, UInt32);
 typedef float(*_CalculateChargePointsPerUse)(float basePoints, float enchantingLevel);
 typedef float(*_GetEffectiveSkillLevel)(ActorValueOwner *, UInt32 skillID);
@@ -41,7 +43,6 @@ static RelocPatch<_ImprovePlayerSkillPoints> kHook_ImprovePlayerSkillPoints(&kHo
 static RelocPatch<void*> kHook_ImproveLevelExpBySkillLevel(&kHook_ImproveLevelExpBySkillLevelSig);
 static RelocPatch<_ImproveAttributeWhenLevelUp> kHook_ImproveAttributeWhenLevelUp(&kHook_ImproveAttributeWhenLevelUpSig);
 static RelocPatch<_GetEffectiveSkillLevel> kHook_GetEffectiveSkillLevel(&kHook_GetEffectiveSkillLevelSig);
-static RelocPatch<_GetCurrentActorValue> kHook_GetCurrentActorValue(&kHook_GetCurrentActorValueSig);
 ///@}
 
 /**
@@ -62,7 +63,6 @@ static RelocPatch<_GetBaseActorValue> GetBaseActorValue(&GetBaseActorValueSig);
 extern "C" {
     uintptr_t ImprovePlayerSkillPoints_ReturnTrampoline;
     uintptr_t ImproveAttributeWhenLevelUp_ReturnTrampoline;
-    uintptr_t GetCurrentActorValue_ReturnTrampoline;
     uintptr_t GetEffectiveSkillLevel_ReturnTrampoline;
 }
 ///@}
@@ -78,11 +78,6 @@ static RelocAddr <uintptr_t *> kHook_HideLegendaryButton_Ent = 0x08C1456;
 static RelocAddr <uintptr_t *> kHook_HideLegendaryButton_Ret = 0x08C1456 + 0x1D;
 
 static RelocAddr <_GetSkillCoefficients> GetSkillCoefficients(0x03E37F0);
-
-static RelocAddr <_ImproveLevelExpBySkillLevel> ImproveLevelExpBySkillLevel_Original = 0x06E5D90;
-
-static RelocAddr <_GetCurrentActorValue> GetCurrentActorValue = 0x061F6C0;
-static _GetCurrentActorValue GetCurrentActorValue_Original = nullptr;
 
 static RelocAddr <_CalculateChargePointsPerUse> CalculateChargePointsPerUse_Original(0x03C0F10);
 #endif
@@ -163,7 +158,7 @@ float CalculateChargePointsPerUse_Hook(float basePoints, float enchantingLevel)
 #endif
 
 #if 0
-void ImproveSkillLevel_Hook(void* pPlayer, UInt32 skillID, UInt32 count)
+void ImproveSkillByTraining_Hook(void* pPlayer, UInt32 skillID, UInt32 count)
 {
     PlayerSkills* skillData = *reinterpret_cast<PlayerSkills**>(reinterpret_cast<uintptr_t>(pPlayer)+0x9B0);
     if (count < 1)
@@ -204,17 +199,32 @@ void ImproveSkillLevel_Hook(void* pPlayer, UInt32 skillID, UInt32 count)
 }
 #endif
 
-static void ImprovePlayerSkillPoints_Hook(PlayerSkills* skillData, UInt32 skillID, float exp, UInt64 unk1, UInt32 unk2, UInt8 unk3, bool unk4)
-{
+static void
+ImprovePlayerSkillPoints_Hook(
+    PlayerSkills* skillData,
+    UInt32 skillID,
+    float exp,
+    UInt64 unk1,
+    UInt32 unk2,
+    UInt8 unk3,
+    bool unk4
+) {
     if (settings.IsManagedSkill(skillID)) {
-        exp *= settings.GetSkillExpGainMult(skillID, GetPlayerBaseSkillLevel(skillID), GetPlayerLevel());
+        exp *= settings.GetSkillExpGainMult(
+            skillID,
+            GetPlayerBaseSkillLevel(skillID),
+            GetPlayerLevel()
+        );
     }
 
     ImprovePlayerSkillPoints_Original(skillData, skillID, exp, unk1, unk2, unk3, unk4);
 }
 
-extern "C" float ImproveLevelExpBySkillLevel_Hook(float exp, UInt32 skillID)
-{
+extern "C" float
+ImproveLevelExpBySkillLevel_Hook(
+    float exp,
+    UInt32 skillID
+) {
     if (settings.IsManagedSkill(skillID)) {
         exp *= settings.GetLevelSkillExpMult(skillID, GetPlayerBaseSkillLevel(skillID), GetPlayerLevel());
     }
@@ -222,8 +232,11 @@ extern "C" float ImproveLevelExpBySkillLevel_Hook(float exp, UInt32 skillID)
     return exp;
 }
 
-static UInt64 ImproveAttributeWhenLevelUp_Hook(void* unk0, UInt8 unk1)
-{
+static UInt64
+ImproveAttributeWhenLevelUp_Hook(
+    void* unk0,
+    UInt8 unk1
+) {
 
     Setting * iAVDhmsLevelUp = (*g_gameSettingCollection)->Get("iAVDhmsLevelUp");
     Setting * fLevelUpCarryWeightMod = (*g_gameSettingCollection)->Get("fLevelUpCarryWeightMod");
@@ -244,8 +257,10 @@ static UInt64 ImproveAttributeWhenLevelUp_Hook(void* unk0, UInt8 unk1)
     return ImproveAttributeWhenLevelUp_Original(unk0, unk1);
 }
 
-extern "C" void ModifyPerkPool_Hook(SInt8 count)
-{
+extern "C" void
+ModifyPerkPool_Hook(
+    SInt8 count
+) {
     UInt8* points = &((*g_thePlayer)->numPerkPoints);
     if (count > 0) { // Add perk points
         UInt32 sum = settings.GetPerkDelta(GetPlayerLevel()) + *points;
@@ -256,30 +271,11 @@ extern "C" void ModifyPerkPool_Hook(SInt8 count)
     }
 }
 
-extern "C" float GetSkillCap_Hook(UInt32 skillID)
-{
-    return settings.GetSkillCap(skillID);
-}
-
-/**
- * @brief Overwrites the GetCurrentActorValue function, clamping the output
- *        to the configured effective cap.
- * @param av Unknown. The actor this is operating on?
- * @param skill_id The raw ID of the skill.
- */
-static float
-GetCurrentActorValue_Hook(
-    void *av,
-    uint32_t skill_id
+extern "C" float
+GetSkillCap_Hook(
+    UInt32 skillID
 ) {
-    float val = GetCurrentActorValue_Original(av, skill_id);
-
-    if (settings.IsManagedSkill(skill_id)) {
-        float cap = settings.GetSkillFormulaCap(skill_id);
-        val = (val <= 0) ? 0 : ((val >= cap) ? cap : val);
-    }
-
-    return val;
+    return settings.GetSkillCap(skillID);
 }
 
 static float
@@ -288,7 +284,7 @@ GetEffectiveSkillLevel_Hook(
     uint32_t skill_id
 ) {
     float val = GetEffectiveSkillLevel_Original(av, skill_id);
-    
+
     if (settings.IsManagedSkill(skill_id)) {
         float cap = settings.GetSkillFormulaCap(skill_id);
         val = (val <= 0) ? 0 : ((val >= cap) ? cap : val);
@@ -330,18 +326,18 @@ bool CheckConditionForLegendarySkill_Hook(void* pActorValueOwner, UInt32 skillID
     float skillLevel = GetBaseActorValue(*(char**)(g_thePlayer.GetPtr()) + 0xB0, skillID);
     return (skillLevel >= settings.settingsLegendarySkill.iSkillLevelEnableLegendary) ? true : false;
 }
-
-bool HideLegendaryButton_Hook(UInt32 skillID)
-{
-    float skillLevel = GetBaseActorValue(*(char**)(g_thePlayer.GetPtr()) + 0xB0, skillID);
-    if (skillLevel >= settings.settingsLegendarySkill.iSkillLevelEnableLegendary && !settings.settingsLegendarySkill.bHideLegendaryButton)
-        return true;
-    return false;
-}
 #endif
 
-void Hook_Skill_Commit()
-{
+extern "C" bool
+HideLegendaryButton_Hook(
+    UInt32 skill_id
+) {
+    float skill_level = GetPlayerBaseSkillLevel(skill_id);
+    return settings.IsLegendaryButtonVisible(skill_level);
+}
+
+void
+Hook_Skill_Commit() {
     _MESSAGE("Do hooks");
 
     // No hooks. These are just game functions we use.
@@ -355,7 +351,6 @@ void Hook_Skill_Commit()
     // Set up the return trampolines for our reimplemented game function calls.
     ImprovePlayerSkillPoints_ReturnTrampoline = kHook_ImprovePlayerSkillPoints.GetRetAddr();
     ImproveAttributeWhenLevelUp_ReturnTrampoline = kHook_ImproveAttributeWhenLevelUp.GetRetAddr();
-    GetCurrentActorValue_ReturnTrampoline = kHook_GetCurrentActorValue.GetRetAddr();
     GetEffectiveSkillLevel_ReturnTrampoline = kHook_GetEffectiveSkillLevel.GetRetAddr();
 
     // The hooks!
@@ -366,7 +361,6 @@ void Hook_Skill_Commit()
     kHook_ImproveLevelExpBySkillLevel.Apply(reinterpret_cast<uintptr_t>(ImproveLevelExpBySkillLevel_Wrapper));
     kHook_ImprovePlayerSkillPoints.Apply(reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Hook));
     kHook_ImproveAttributeWhenLevelUp.Apply(reinterpret_cast<uintptr_t>(ImproveAttributeWhenLevelUp_Hook));
-    kHook_GetCurrentActorValue.Apply(reinterpret_cast<uintptr_t>(GetCurrentActorValue_Hook));
 
     // FIXME: This should probably have its own signature.
     SafeWrite8(kHook_ImproveAttributeWhenLevelUp.GetUIntPtr() + 0x9B, 0);
@@ -380,35 +374,6 @@ void Hook_Skill_Commit()
 #if 0 // not updated code
 
     g_branchTrampoline.Write6Branch(CalculateChargePointsPerUse_Original.GetUIntPtr(), (uintptr_t)CalculateChargePointsPerUse_Hook);
-
-    {
-        struct GetCurrentActorValue_Code : Xbyak::CodeGenerator
-        {
-            GetCurrentActorValue_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
-            {
-                Xbyak::Label retnLabel;
-
-                push(rbp);
-                push(rsi);
-                push(rdi);
-                push(r14);
-
-                jmp(ptr[rip + retnLabel]);
-
-            L(retnLabel);
-                dq(GetCurrentActorValue.GetUIntPtr() + 0x6);
-            }
-        };
-
-        void * codeBuf = g_localTrampoline.StartAlloc();
-        GetCurrentActorValue_Code code(codeBuf);
-        g_localTrampoline.EndAlloc(code.getCurr());
-
-        GetCurrentActorValue_Original = (_GetCurrentActorValue)codeBuf;
-
-        g_branchTrampoline.Write6Branch(GetCurrentActorValue.GetUIntPtr(), (uintptr_t)GetCurrentActorValue_Hook);
-
-    }
 
     {
         struct ExecuteLegendarySkill_Code : Xbyak::CodeGenerator
@@ -466,7 +431,7 @@ void Hook_Skill_Commit()
             HideLegendaryButton_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
             {
                 Xbyak::Label retnLabel;
-                mov(ecx, esi);
+                mov(ecx, esi); // esi = edx in AE?
                 call((void*)&HideLegendaryButton_Hook);
                 cmp(al, 1);
 

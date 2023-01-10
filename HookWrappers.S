@@ -15,7 +15,6 @@ EXTERN ModifyPerkPool_Hook:PROC
 EXTERN ImproveLevelExpBySkillLevel_Hook:PROC
 EXTERN ImprovePlayerSkillPoints_ReturnTrampoline:PTR
 EXTERN ImproveAttributeWhenLevelUp_ReturnTrampoline:PTR
-EXTERN GetCurrentActorValue_ReturnTrampoline:PTR
 EXTERN GetEffectiveSkillLevel_ReturnTrampoline:PTR
 
 ; Saves all caller saved registers, except rax.
@@ -83,7 +82,7 @@ SkillCapPatch_Wrapper ENDP
 ; This function is tailed into by our hook, so we dont need to worry about
 ; register saving.
 ModifyPerkPool_Wrapper PROC PUBLIC
-    sub rsp, 20h
+    sub rsp, 20h ; Standard red-zone.
     mov rcx, rdi ; AE changed rbx to rdi.
     call ModifyPerkPool_Hook
     add rsp, 40h ; We reimplement the original return code as well here.
@@ -124,18 +123,10 @@ ImproveAttributeWhenLevelUp_Original PROC PUBLIC
     jmp ImproveAttributeWhenLevelUp_ReturnTrampoline
 ImproveAttributeWhenLevelUp_Original ENDP
 
-; This function allows us to call the OG GetCurrentActorValue function by
+; This function allows us to call the OG GetEffectiveSkillLevel function by
 ; running the overwritten instructions and then jumping to the address after
 ; our hook.
-GetCurrentActorValue_Original PROC PUBLIC
-    mov qword ptr [rsp + 8h], rbx
-    mov qword ptr [rsp + 18h], rsi
-    jmp GetCurrentActorValue_ReturnTrampoline
-GetCurrentActorValue_Original ENDP
-
 GetEffectiveSkillLevel_Original PROC PUBLIC
-;    push rbx
-;    sub rsp, 20h
     mov r11, rsp
     push rbp
     push rsi

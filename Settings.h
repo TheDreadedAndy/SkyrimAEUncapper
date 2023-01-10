@@ -323,6 +323,13 @@ class Settings {
     LeveledSetting<UInt32> settingsCarryWeightAtMagickaLevelUp;
     LeveledSetting<UInt32> settingsCarryWeightAtStaminaLevelUp;
 
+    struct {
+        bool bLegendaryKeepSkillLevel;
+        bool bHideLegendaryButton;
+        UInt32 iSkillLevelEnableLegendary;
+        UInt32 iSkillLevelAfterLegendary;
+    } settingsLegendarySkill;
+
   public:
     /// @brief Encodes the attribute selection during level-up.
     typedef enum {
@@ -344,18 +351,12 @@ class Settings {
                                unsigned int player_level);
     void GetAttributeLevelUp(unsigned int player_level, player_attr_e attr,
                              UInt32 &attr_up, float &carry_up);
+    bool IsLegendaryButtonVisible(unsigned int skill_level);
 
     struct {
         UInt32 version;
         std::string author;
     } settingsGeneral;
-
-    struct {
-        bool bLegendaryKeepSkillLevel;
-        bool bHideLegendaryButton;
-        UInt32 iSkillLevelEnableLegendary;
-        UInt32 iSkillLevelAfterLegendary;
-    } settingsLegendarySkill;
 };
 
 extern Settings settings;

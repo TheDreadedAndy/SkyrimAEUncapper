@@ -491,3 +491,16 @@ Settings::GetAttributeLevelUp(
     attr_up = a_up;
     carry_up = static_cast<float>(c_up);
 }
+
+/**
+ * @brief Determines if a skill at the given level should have its legendary
+ *        button displayed.
+ * @param skill_level The level of the skill.
+ */
+bool
+Settings::IsLegendaryButtonVisible(
+    unsigned int skill_level
+) {
+    return (skill_level >= settingsLegendarySkill.iSkillLevelEnableLegendary)
+        && (!settingsLegendarySkill.bHideLegendaryButton);
+}
