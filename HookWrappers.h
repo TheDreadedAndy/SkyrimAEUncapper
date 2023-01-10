@@ -15,5 +15,6 @@ extern "C" void ImprovePlayerSkillPoints_Original(void *skillData, UInt32 skillI
 extern "C" UInt64 ImproveAttributeWhenLevelUp_Original(void *unk0, UInt8 unk1);
 extern "C" float GetEffectiveSkillLevel_Original(void*, UInt32);
 extern "C" void DisplayTrueSkillLevel_Hook(void);
+extern "C" void HideLegendaryButton_Wrapper(void);
 
 #endif /* __SKYRIM_UNCAPPER_AE_HOOK_WRAPPERS_H__ */

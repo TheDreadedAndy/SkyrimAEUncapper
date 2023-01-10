@@ -188,6 +188,7 @@ extern "C" {
     uintptr_t ImproveAttributeWhenLevelUp_ReturnTrampoline;
     uintptr_t GetEffectiveSkillLevel_ReturnTrampoline;
     uintptr_t DisplayTrueSkillLevel_ReturnTrampoline;
+    uintptr_t HideLegendaryButton_ReturnTrampoline;
 }
 ///@}
 
@@ -357,11 +358,33 @@ const CodeSignature kSkillCapPatch_PatchSig(
     kHook_CheckConditionForLegendarySkill_Ent = RVAScan<uintptr_t *>(GET_RVA(kHook_CheckConditionForLegendarySkill_Ent), "8B D0 48 8D 8F B0 00 00 00 FF 53 18 0F 2F 05 ? ? ? ? 0F 82 10 0A 00 00 45 33 FF 4C 89 7D 80 44 89 7D 88 45 33 C0 48 8B 15 ? ? ? ? 48 8D 4D 80");
     kHook_CheckConditionForLegendarySkill_Ret = kHook_CheckConditionForLegendarySkill_Ent;
     kHook_CheckConditionForLegendarySkill_Ret += 0x13;
-
-    kHook_HideLegendaryButton_Ent            = RVAScan<uintptr_t *>(GET_RVA(kHook_HideLegendaryButton_Ent), "48 8B 0D ? ? ? ? 48 81 C1 B0 00 00 00 48 8B 01 8B D6 FF 50 18 0F 2F 05 ? ? ? ? 72 64 48 8D 05 ? ? ? ? 48 89 85 C0 00 00 00 4C 89 64 24 20");
-    kHook_HideLegendaryButton_Ret            = kHook_HideLegendaryButton_Ent;
-    kHook_HideLegendaryButton_Ret            += 0x1D;
 #endif
+
+/**
+ * @brief Hooks into the legendary button display code to allow it to be hidden.
+ *
+ * The assembly for this hook is as follows:
+ * 48 8b 0d 2e d4 6b 02 	mov    0x26bd42e(%rip),%rcx        # 0x142fc1b78
+ * 48 81 c1 b8 00 00 00 	add    $0xb8,%rcx
+ * 48 8b 01             	mov    (%rcx),%rax
+ * 41 8b d7             	mov    %r15d,%edx
+ * ff 50 18             	callq  *0x18(%rax)
+ * 0f 2f 05 bf 57 d1 00 	comiss 0xd157bf(%rip),%xmm0        # 0x141619f20
+ * 72 6b                	jb     0x1409047ce
+ * 48 8d 05 d6 b9 e9 00 	lea    0xe9b9d6(%rip),%rax        # 0x1417a0140
+ * 48 89 85 c0 00 00 00 	mov    %rax,0xc0(%rbp)
+ * 48 8d 3d 58 99 c2 ff 	lea    -0x3d66a8(%rip),%rdi
+*/
+const CodeSignature kHideLegendaryButton_PatchSig(
+    /* name */       "HideLegendaryButton",
+    /* hook_type */  HookType::Jump6,
+    /* hook */       reinterpret_cast<uintptr_t>(HideLegendaryButton_Wrapper),
+    /* sig */        "48 8b 0d ? ? ? ? 48 81 c1 b8 00 00 00 48 8b 01 41 8b "
+                     "d7 ff 50 18 0f 2f 05 ? ? ? ? 72 6b 48 8d 05 ? ? ? ? 48 "
+                     "89 85 c0 00 00 00 48 8d 3d ? ? ? ?",
+    /* patch_size */ 0x1E,
+    /* trampoline */ &HideLegendaryButton_ReturnTrampoline
+);
 
 #if 0 // not updated code
 
@@ -415,31 +438,6 @@ const CodeSignature kSkillCapPatch_PatchSig(
         g_localTrampoline.EndAlloc(code.getCurr());
 
         g_branchTrampoline.Write6Branch(kHook_CheckConditionForLegendarySkill_Ent.GetUIntPtr(), uintptr_t(code.getCode()));
-    }
-
-    {
-        struct HideLegendaryButton_Code : Xbyak::CodeGenerator
-        {
-            HideLegendaryButton_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
-            {
-                Xbyak::Label retnLabel;
-                mov(ecx, esi); // esi = edx in AE?
-                call((void*)&HideLegendaryButton_Hook);
-                cmp(al, 1);
-
-                jmp(ptr[rip + retnLabel]);
-
-            L(retnLabel);
-                dq(kHook_HideLegendaryButton_Ret.GetUIntPtr());
-            }
-        };
-
-        void * codeBuf = g_localTrampoline.StartAlloc();
-        HideLegendaryButton_Code code(codeBuf);
-        g_localTrampoline.EndAlloc(code.getCurr());
-
-        g_branchTrampoline.Write6Branch(kHook_HideLegendaryButton_Ent.GetUIntPtr(), uintptr_t(code.getCode()));
-
     }
 #endif
 
@@ -515,6 +513,7 @@ const CodeSignature kImprovePlayerSkillPoints_PatchSig(
  * @brief TODO
  *
  * FIXME: It would probably be more stable to give this its own signature.
+ * FIXME: Should verify that this signature is correct against the one in the OG version.
  *
  * const unsigned char expectedCode[] = {0xf3, 0x0f, 0x58, 0x08, 0xf3, 0x0f, 0x11, 0x08};
  * ASSERT(memcmp((void*)(kHook_ImproveLevelExpBySkillLevel.GetUIntPtr()), expectedCode, sizeof(expectedCode)) == 0);
@@ -792,6 +791,7 @@ const CodeSignature *kGameSignatures[] = {
     &kGetBaseActorValue_FunctionSig,
     &kModifyPerkPool_PatchSig,
     &kSkillCapPatch_PatchSig,
+    &kHideLegendaryButton_PatchSig,
     &kImproveSkillLevel_PatchSig,
     &kImprovePlayerSkillPoints_PatchSig,
     &kImproveLevelExpBySkillLevel_PatchSig,

@@ -13,10 +13,12 @@
 EXTERN GetSkillCap_Hook:PROC
 EXTERN ModifyPerkPool_Hook:PROC
 EXTERN ImproveLevelExpBySkillLevel_Hook:PROC
+EXTERN HideLegendaryButton_Hook:PROC
 EXTERN ImprovePlayerSkillPoints_ReturnTrampoline:PTR
 EXTERN ImproveAttributeWhenLevelUp_ReturnTrampoline:PTR
 EXTERN GetEffectiveSkillLevel_ReturnTrampoline:PTR
 EXTERN DisplayTrueSkillLevel_ReturnTrampoline:PTR
+EXTERN HideLegendaryButton_ReturnTrampoline:PTR
 
 ; Saves all caller saved registers, except rax.
 BEGIN_INJECTED_CALL MACRO
@@ -140,5 +142,12 @@ DisplayTrueSkillLevel_Hook PROC PUBLIC
     cvttss2si ecx, xmm0
     jmp DisplayTrueSkillLevel_ReturnTrampoline
 DisplayTrueSkillLevel_Hook ENDP
+
+HideLegendaryButton_Wrapper PROC PUBLIC
+    mov ecx, edx
+    call HideLegendaryButton_Hook
+    cmp al, 1
+    jmp HideLegendaryButton_ReturnTrampoline
+HideLegendaryButton_Wrapper ENDP
 
 END
