@@ -1,88 +1,15 @@
 // FIXME: Using the SKSE pointers for the player and game settings kills
 // version independence.
 
-#include "common/IPrefix.h"
 #include "GameFormComponents.h"
 #include "GameReferences.h"
 #include "GameSettings.h"
-#include "Relocation.h"
-#include "BranchTrampoline.h"
-#include "SafeWrite.h"
 
 #include "Hook_Skill.h"
-#include "HookWrappers.h"
 #include "Settings.h"
-#include "Signatures.h"
-#include "RelocPatch.h"
+#include "RelocFn.h"
 
 using LevelData = PlayerSkills::StatData::LevelData;
-
-/**
- * @brief Function definitions for our hooks into the game.
- */
-///@{
-typedef void(*_ImproveSkillLevel)(void* pPlayer, UInt32 skillID, UInt32 count);
-typedef void(*_ImprovePlayerSkillPoints)(void*, UInt32, float, UInt64, UInt32, UInt8, bool);
-typedef UInt64(*_ImproveAttributeWhenLevelUp)(void*, UInt8);
-typedef bool(*_GetSkillCoefficients)(UInt32, float*, float*, float*, float*);
-typedef UInt16(*_GetLevel)(void* pPlayer);
-typedef float(*_ImproveLevelExpBySkillLevel)(float skillLevel);
-typedef float(*_GetBaseActorValue)(void*, UInt32);
-typedef float(*_CalculateChargePointsPerUse)(float basePoints, float enchantingLevel);
-typedef float(*_GetEffectiveSkillLevel)(ActorValueOwner *, UInt32 skillID);
-///@}
-
-/**
- * @brief Local hooks for the functions we modify.
- */
-///@{
-static RelocPatch<uintptr_t*> kHook_ModifyPerkPool(&kHook_ModifyPerkPoolSig);
-static RelocPatch<uintptr_t*> kHook_SkillCapPatch(&kHook_SkillCapPatchSig);
-static RelocPatch<_ImproveSkillLevel> kHook_ImproveSkillLevel(&kHook_ImproveSkillLevelSig);
-static RelocPatch<_ImprovePlayerSkillPoints> kHook_ImprovePlayerSkillPoints(&kHook_ImprovePlayerSkillPointsSig);
-static RelocPatch<void*> kHook_ImproveLevelExpBySkillLevel(&kHook_ImproveLevelExpBySkillLevelSig);
-static RelocPatch<_ImproveAttributeWhenLevelUp> kHook_ImproveAttributeWhenLevelUp(&kHook_ImproveAttributeWhenLevelUpSig);
-static RelocPatch<_GetEffectiveSkillLevel> kHook_GetEffectiveSkillLevel(&kHook_GetEffectiveSkillLevelSig);
-static RelocPatch<void*> kHook_DisplayTrueSkillLevel(&kHook_DisplayTrueSkillLevelSig);
-///@}
-
-/**
- * @brief Local hooks for the game functions that we call.
- */
-///@{
-static RelocPatch<_GetLevel> GetLevel(&GetLevelSig);
-static RelocPatch<_GetBaseActorValue> GetBaseActorValue(&GetBaseActorValueSig);
-///@}
-
-/**
- * @brief Used by the OG game functions we replace to return to their
- *        unmodified implementations.
- *
- * Boing!
- */
-///@{
-extern "C" {
-    uintptr_t ImprovePlayerSkillPoints_ReturnTrampoline;
-    uintptr_t ImproveAttributeWhenLevelUp_ReturnTrampoline;
-    uintptr_t GetEffectiveSkillLevel_ReturnTrampoline;
-    uintptr_t DisplayTrueSkillLevel_ReturnTrampoline;
-}
-///@}
-
-#if 0
-static RelocAddr <uintptr_t *> kHook_ExecuteLegendarySkill_Ent = 0x08C95FD;//get it when legendary skill by trace setbaseav.
-static RelocAddr <uintptr_t *> kHook_ExecuteLegendarySkill_Ret = 0x08C95FD + 0x6;
-
-static RelocAddr <uintptr_t *> kHook_CheckConditionForLegendarySkill_Ent = 0x08BF655;
-static RelocAddr <uintptr_t *> kHook_CheckConditionForLegendarySkill_Ret = 0x08BF655 + 0x13;
-
-static RelocAddr <uintptr_t *> kHook_HideLegendaryButton_Ent = 0x08C1456;
-static RelocAddr <uintptr_t *> kHook_HideLegendaryButton_Ret = 0x08C1456 + 0x1D;
-
-static RelocAddr <_GetSkillCoefficients> GetSkillCoefficients(0x03E37F0);
-
-static RelocAddr <_CalculateChargePointsPerUse> CalculateChargePointsPerUse_Original(0x03C0F10);
-#endif
 
 /**
  * @brief Gets the base level of a skill on the player character.
@@ -225,23 +152,27 @@ ImprovePlayerSkillPoints_Hook(
 extern "C" float
 ImproveLevelExpBySkillLevel_Hook(
     float exp,
-    UInt32 skillID
+    UInt32 skill_id
 ) {
-    if (settings.IsManagedSkill(skillID)) {
-        exp *= settings.GetLevelSkillExpMult(skillID, GetPlayerBaseSkillLevel(skillID), GetPlayerLevel());
+    if (settings.IsManagedSkill(skill_id)) {
+        exp *= settings.GetLevelSkillExpMult(
+            skill_id,
+            GetPlayerBaseSkillLevel(skill_id),
+            GetPlayerLevel()
+        );
     }
 
     return exp;
 }
 
-static UInt64
+UInt64
 ImproveAttributeWhenLevelUp_Hook(
     void* unk0,
     UInt8 unk1
 ) {
 
-    Setting * iAVDhmsLevelUp = (*g_gameSettingCollection)->Get("iAVDhmsLevelUp");
-    Setting * fLevelUpCarryWeightMod = (*g_gameSettingCollection)->Get("fLevelUpCarryWeightMod");
+    Setting *iAVDhmsLevelUp = (*g_gameSettingCollection)->Get("iAVDhmsLevelUp");
+    Setting *fLevelUpCarryWeightMod = (*g_gameSettingCollection)->Get("fLevelUpCarryWeightMod");
 
     ASSERT(iAVDhmsLevelUp);
     ASSERT(fLevelUpCarryWeightMod);
@@ -275,12 +206,12 @@ ModifyPerkPool_Hook(
 
 extern "C" float
 GetSkillCap_Hook(
-    UInt32 skillID
+    UInt32 skill_id
 ) {
-    return settings.GetSkillCap(skillID);
+    return settings.GetSkillCap(skill_id);
 }
 
-static float
+float
 GetEffectiveSkillLevel_Hook(
     void *av,
     uint32_t skill_id
@@ -332,7 +263,7 @@ bool CheckConditionForLegendarySkill_Hook(void* pActorValueOwner, UInt32 skillID
 
 /**
  * @brief Determines if the legendary button should be displayed for the given
- *        skill based on the users settings. 
+ *        skill based on the users settings.
  */
 extern "C" bool
 HideLegendaryButton_Hook(
@@ -340,125 +271,4 @@ HideLegendaryButton_Hook(
 ) {
     float skill_level = GetPlayerBaseSkillLevel(skill_id);
     return settings.IsLegendaryButtonVisible(skill_level);
-}
-
-/**
- * @brief Installs the patches which apply this plugins changes to the game.
- */
-void
-Hook_Skill_Commit() {
-    _MESSAGE("Do hooks");
-
-    // No hooks. These are just game functions we use.
-    GetLevel.Resolve();
-    GetBaseActorValue.Resolve();
-
-    // These overlap, so we resolve them before changing anything.
-    kHook_ImprovePlayerSkillPoints.Resolve();
-    kHook_ImproveLevelExpBySkillLevel.Resolve();
-
-    // Set up the return trampolines for our reimplemented game function calls.
-    ImprovePlayerSkillPoints_ReturnTrampoline = kHook_ImprovePlayerSkillPoints.GetRetAddr();
-    ImproveAttributeWhenLevelUp_ReturnTrampoline = kHook_ImproveAttributeWhenLevelUp.GetRetAddr();
-    GetEffectiveSkillLevel_ReturnTrampoline = kHook_GetEffectiveSkillLevel.GetRetAddr();
-    DisplayTrueSkillLevel_ReturnTrampoline = kHook_DisplayTrueSkillLevel.GetRetAddr();
-
-    // The hooks!
-    kHook_GetEffectiveSkillLevel.Apply(reinterpret_cast<uintptr_t>(GetEffectiveSkillLevel_Hook));
-    kHook_SkillCapPatch.Apply(reinterpret_cast<uintptr_t>(SkillCapPatch_Wrapper));
-    kHook_ModifyPerkPool.Apply(reinterpret_cast<uintptr_t>(ModifyPerkPool_Wrapper));
-    kHook_ImproveSkillLevel.Apply(reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Original));
-    kHook_ImproveLevelExpBySkillLevel.Apply(reinterpret_cast<uintptr_t>(ImproveLevelExpBySkillLevel_Wrapper));
-    kHook_ImprovePlayerSkillPoints.Apply(reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Hook));
-    kHook_ImproveAttributeWhenLevelUp.Apply(reinterpret_cast<uintptr_t>(ImproveAttributeWhenLevelUp_Hook));
-    kHook_DisplayTrueSkillLevel.Apply(reinterpret_cast<uintptr_t>(DisplayTrueSkillLevel_Hook));
-
-    // FIXME: This should probably have its own signature.
-    SafeWrite8(kHook_ImproveAttributeWhenLevelUp.GetUIntPtr() + 0x9B, 0);
-/*
-       1408c4793 ff 50 28        CALL       qword ptr [RAX + 0x28]
-       1408c4796 83 7f 18 1a     CMP        dword ptr [RDI + 0x18],0x1a
-       1408c479a 75 22           JNZ        LAB_1408c47be
-22 replaced with 0. To disable jump over increasing carry weight if not stamina(0x1a) selected?
-*/
-
-#if 0 // not updated code
-
-    g_branchTrampoline.Write6Branch(CalculateChargePointsPerUse_Original.GetUIntPtr(), (uintptr_t)CalculateChargePointsPerUse_Hook);
-
-    {
-        struct ExecuteLegendarySkill_Code : Xbyak::CodeGenerator
-        {
-            ExecuteLegendarySkill_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
-            {
-                Xbyak::Label retnLabel;
-
-                mov(edx, ptr[rsi + 0x1C]);
-                call((void*)&LegendaryResetSkillLevel_Hook);
-
-                jmp(ptr[rip + retnLabel]);
-
-            L(retnLabel);
-                dq(kHook_ExecuteLegendarySkill_Ret.GetUIntPtr());
-            }
-        };
-
-        void * codeBuf = g_localTrampoline.StartAlloc();
-        ExecuteLegendarySkill_Code code(codeBuf);
-        g_localTrampoline.EndAlloc(code.getCurr());
-
-        g_branchTrampoline.Write6Branch(kHook_ExecuteLegendarySkill_Ent.GetUIntPtr(), uintptr_t(code.getCode()));
-    }
-
-    {
-        struct CheckConditionForLegendarySkill_Code : Xbyak::CodeGenerator
-        {
-            CheckConditionForLegendarySkill_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
-            {
-                Xbyak::Label retnLabel;
-
-                mov(edx, eax);
-                lea(rcx, ptr[rdi + 0xB0]);
-                call((void*)&CheckConditionForLegendarySkill_Hook);
-                cmp(al, 1);
-
-                jmp(ptr[rip + retnLabel]);
-
-            L(retnLabel);
-                dq(kHook_CheckConditionForLegendarySkill_Ret.GetUIntPtr());
-            }
-        };
-
-        void * codeBuf = g_localTrampoline.StartAlloc();
-        CheckConditionForLegendarySkill_Code code(codeBuf);
-        g_localTrampoline.EndAlloc(code.getCurr());
-
-        g_branchTrampoline.Write6Branch(kHook_CheckConditionForLegendarySkill_Ent.GetUIntPtr(), uintptr_t(code.getCode()));
-    }
-
-    {
-        struct HideLegendaryButton_Code : Xbyak::CodeGenerator
-        {
-            HideLegendaryButton_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
-            {
-                Xbyak::Label retnLabel;
-                mov(ecx, esi); // esi = edx in AE?
-                call((void*)&HideLegendaryButton_Hook);
-                cmp(al, 1);
-
-                jmp(ptr[rip + retnLabel]);
-
-            L(retnLabel);
-                dq(kHook_HideLegendaryButton_Ret.GetUIntPtr());
-            }
-        };
-
-        void * codeBuf = g_localTrampoline.StartAlloc();
-        HideLegendaryButton_Code code(codeBuf);
-        g_localTrampoline.EndAlloc(code.getCurr());
-
-        g_branchTrampoline.Write6Branch(kHook_HideLegendaryButton_Ent.GetUIntPtr(), uintptr_t(code.getCode()));
-
-    }
-#endif
 }

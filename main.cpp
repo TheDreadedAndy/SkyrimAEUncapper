@@ -8,11 +8,12 @@
 
 #include <ShlObj.h>
 #include "BranchTrampoline.h"
-#include "Hook_Skill.h"
-#include "Settings.h"
 #include "Utilities.h"
 #include "PluginAPI.h"
 #include "skse_version.h"
+
+#include "RelocPatch.h"
+#include "Settings.h"
 
 #define DLL_EXPORT __declspec(dllexport)
 
@@ -61,7 +62,7 @@ static bool SkyrimUncapper_Initialize(const SKSEInterface* skse)
         _ERROR("couldn't create branch trampoline. this is fatal. skipping remainder of init process.");
         return false;
     }
-    
+
     std::string path;
     if (!GetDllDirWithSlash(path)) {
         return false;
@@ -72,7 +73,7 @@ static bool SkyrimUncapper_Initialize(const SKSEInterface* skse)
         return false;
     }
 
-    Hook_Skill_Commit();
+    ApplyGamePatches();
     _MESSAGE("Init complete");
     return true;
 }
