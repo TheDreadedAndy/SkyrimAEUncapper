@@ -43,6 +43,7 @@ static RelocPatch<_ImprovePlayerSkillPoints> kHook_ImprovePlayerSkillPoints(&kHo
 static RelocPatch<void*> kHook_ImproveLevelExpBySkillLevel(&kHook_ImproveLevelExpBySkillLevelSig);
 static RelocPatch<_ImproveAttributeWhenLevelUp> kHook_ImproveAttributeWhenLevelUp(&kHook_ImproveAttributeWhenLevelUpSig);
 static RelocPatch<_GetEffectiveSkillLevel> kHook_GetEffectiveSkillLevel(&kHook_GetEffectiveSkillLevelSig);
+static RelocPatch<void*> kHook_DisplayTrueSkillLevel(&kHook_DisplayTrueSkillLevelSig);
 ///@}
 
 /**
@@ -64,6 +65,7 @@ extern "C" {
     uintptr_t ImprovePlayerSkillPoints_ReturnTrampoline;
     uintptr_t ImproveAttributeWhenLevelUp_ReturnTrampoline;
     uintptr_t GetEffectiveSkillLevel_ReturnTrampoline;
+    uintptr_t DisplayTrueSkillLevel_ReturnTrampoline;
 }
 ///@}
 
@@ -328,6 +330,10 @@ bool CheckConditionForLegendarySkill_Hook(void* pActorValueOwner, UInt32 skillID
 }
 #endif
 
+/**
+ * @brief Determines if the legendary button should be displayed for the given
+ *        skill based on the users settings. 
+ */
 extern "C" bool
 HideLegendaryButton_Hook(
     UInt32 skill_id
@@ -336,6 +342,9 @@ HideLegendaryButton_Hook(
     return settings.IsLegendaryButtonVisible(skill_level);
 }
 
+/**
+ * @brief Installs the patches which apply this plugins changes to the game.
+ */
 void
 Hook_Skill_Commit() {
     _MESSAGE("Do hooks");
@@ -352,6 +361,7 @@ Hook_Skill_Commit() {
     ImprovePlayerSkillPoints_ReturnTrampoline = kHook_ImprovePlayerSkillPoints.GetRetAddr();
     ImproveAttributeWhenLevelUp_ReturnTrampoline = kHook_ImproveAttributeWhenLevelUp.GetRetAddr();
     GetEffectiveSkillLevel_ReturnTrampoline = kHook_GetEffectiveSkillLevel.GetRetAddr();
+    DisplayTrueSkillLevel_ReturnTrampoline = kHook_DisplayTrueSkillLevel.GetRetAddr();
 
     // The hooks!
     kHook_GetEffectiveSkillLevel.Apply(reinterpret_cast<uintptr_t>(GetEffectiveSkillLevel_Hook));
@@ -361,6 +371,7 @@ Hook_Skill_Commit() {
     kHook_ImproveLevelExpBySkillLevel.Apply(reinterpret_cast<uintptr_t>(ImproveLevelExpBySkillLevel_Wrapper));
     kHook_ImprovePlayerSkillPoints.Apply(reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Hook));
     kHook_ImproveAttributeWhenLevelUp.Apply(reinterpret_cast<uintptr_t>(ImproveAttributeWhenLevelUp_Hook));
+    kHook_DisplayTrueSkillLevel.Apply(reinterpret_cast<uintptr_t>(DisplayTrueSkillLevel_Hook));
 
     // FIXME: This should probably have its own signature.
     SafeWrite8(kHook_ImproveAttributeWhenLevelUp.GetUIntPtr() + 0x9B, 0);

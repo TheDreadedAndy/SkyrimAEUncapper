@@ -21,7 +21,7 @@
  *
  * Upon entry into our hook, we run our function. We then reimplement the final
  * few instructions in the return path of the function we hooked into. This way,
- * we need only modify one instruction and can still use the RelocFn interface.
+ * we need only modify one instruction and can still use the RelocPatch interface.
  *
  * The assembly for this signature is as follows:
  * 48 85 c0        TEST       RAX,RAX
@@ -70,7 +70,7 @@ const PatchSignature kHook_ModifyPerkPoolSig(
  * The offset into this signature overwrites a movess instruction and instead
  * redirects to our handler. Note that the last four bytes of this instruction
  * must be overwritten with 0x90 (NOP), at the request of the author of the
- * eXPerience mod (17751). This is handled by the RelocFn interface.
+ * eXPerience mod (17751). This is handled by the RelocPatch interface.
  *
  * This signature hooks into the following function:
  * void FUN_14070ec10(
@@ -474,6 +474,55 @@ const PatchSignature kHook_GetEffectiveSkillLevelSig(
                       "8B 40 60 C1 E8 12 A8 01 74 3F 48 8B 49 40 48 85 C9 74 "
                       "36 48 83 79 50 00 74 2F 40 B5 01",
     /* patch_size */  6
+);
+
+/**
+ * @brief Overwrites the skill display GetEffectiveSkillLevel() call to display
+ *        the actual, non-damaged, skill level.
+ * 
+ * The function that is overwritten by our GetEffectiveSkillLevel() hook is also
+ * used to display the skill level in the skills menu.
+ * 
+ * So as to not confuse players, this hook is used to force the skills menu to
+ * show the actual skill level, not the damaged value.
+ * 
+ * The assembly is as follows:
+ * FF 50 08             call        qword ptr [rax+8]
+ * F3 0F 2C C8          cvttss2si   ecx,xmm0
+ * 81 F9 00 00 00 80    cmp         ecx,80000000h
+ * 74 1E                je          00007FF6BD9C3BED
+ * 66 0F 6E C9          movd        xmm1,ecx
+ * 0F 5B C9             cvtdq2ps    xmm1,xmm1
+ * 0F 2E C8             ucomiss     xmm1,xmm0
+ * 74 12                je          00007FF6BD9C3BED
+ * 0F 14 C0             unpcklps    xmm0,xmm0
+ * 0F 50 C0             movmskps    eax,xmm0
+ * 83 E0 01             and         eax,1
+ * 2B C8                sub         ecx,eax
+ * 66 0F 6E C1          movd        xmm0,ecx
+ * 0F 5B C0             cvtdq2ps    xmm0,xmm0
+ * 4D 8B CE             mov         r9,r14
+ * 4C 89 74 24 40       mov         qword ptr [rsp+40h],r14
+ * BA 03 00 00 00       mov         edx,3
+ * 89 54 24 48          mov         dword ptr [rsp+48h],edx
+ * F3 0F 5A C0          cvtss2sd    xmm0,xmm0
+ * F2 0F 11 44 24 50    movsd       mmword ptr [rsp+50h],xmm0
+ * 48 8D 0C 76          lea         rcx,[rsi+rsi*2]
+ * 48 8D 9D 90 00 00 00 lea         rbx,[rbp+90h]
+ * 48 8D 1C CB          lea         rbx,[rbx+rcx*8]
+ * 48 8D 44 24 40       lea         rax,[rsp+40h]
+ * 48 3B D8             cmp         rbx,rax
+ */
+const PatchSignature kHook_DisplayTrueSkillLevelSig(
+    /* name */       "DisplayTrueSkillLevel",
+    /* hook_type */  HookType::Branch6,
+    /* sig */        "FF 50 08 F3 0F 2C C8 81 F9 00 00 00 80 74 1E 66 0F 6E "
+                     "C9 0F 5B C9 0F 2E C8 74 12 0F 14 C0 0F 50 C0 83 E0 01 "
+                     "2B C8 66 0F 6E C1 0F 5B C0 4D 8B CE 4C 89 74 24 40 BA "
+                     "03 00 00 00 89 54 24 48 F3 0F 5A C0 F2 0F 11 44 24 50 "
+                     "48 8D 0C 76 48 8D 9D 90 00 00 00 48 8D 1C CB 48 8D 44 "
+                     "24 40 48 3B D8",
+    /* patch_size */ 7
 );
 
 #endif /* __SKYRIM_SSE_SKILL_UNCAPPER_SIGNATURES_H__ */

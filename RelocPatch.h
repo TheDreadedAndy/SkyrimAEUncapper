@@ -37,12 +37,6 @@ const size_t kMaxInstrSize = 15;
 /// @brief The opcode for an x86 NOP.
 const uint8_t kNop = 0x90;
 
-/// @brief Patch sizes for direct hooks.
-///@{
-const size_t kDirectCallPatchSize = 5;
-const size_t kDirectJumpPatchSize = 5;
-///@}
-
 /// @brief Encodes the various types of hooks which can be injected.
 class HookType {
 public:
@@ -60,17 +54,13 @@ public:
                 break;
             case Branch5:
             case Call5:
+            case DirectCall:
+            case DirectJump:
                 ret = 5;
                 break;
             case Branch6:
             case Call6:
                 ret = 6;
-                break;
-            case DirectCall:
-                ret = kDirectCallPatchSize;
-                break;
-            case DirectJump:
-                ret = kDirectJumpPatchSize;
                 break;
             default:
                 HALT("Cannot get the size of an invalid hook type.");
