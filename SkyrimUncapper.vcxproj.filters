@@ -30,6 +30,9 @@
     <ClCompile Include="SafeMemSet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="RelocPatch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="reg2k\Pattern.h">
@@ -44,9 +47,6 @@
     <ClInclude Include="Settings.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Signatures.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="SafeMemSet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -54,6 +54,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="HookWrappers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RelocFn.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

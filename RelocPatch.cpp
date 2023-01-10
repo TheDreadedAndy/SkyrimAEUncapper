@@ -54,6 +54,7 @@ struct HookType {
         size_t ret = 0;
 
         switch (type) {
+            case None:
             case Nop:
                 ret = 0;
                 break;
@@ -206,7 +207,7 @@ const CodeSignature kGetLevel_FunctionSig(
     /* sig */             "84 C0 74 24 48 8B CB E8 ? ? ? ? 0F B7 C8 48 8B D7 "
                           "E8 ? ? ? ? 84 C0 74 0D B0 01 48 8B 5C 24 30 48 83 "
                           "C4 20 5F C3",
-    /* result */          &reinterpret_cast<void*>(GetLevel_Entry),
+    /* result */          reinterpret_cast<void**>(&GetLevel_Entry),
     /* offset */          7,
     /* indirect_offset */ 1,
     /* instr_size */      5
@@ -238,7 +239,7 @@ const CodeSignature kGetBaseActorValue_FunctionSig(
     /* sig */        "48 89 5C 24 18 48 89 74 24 20 57 48 83 EC 30 48 63 FA "
                      "48 8D B1 50 01 00 00 48 8B D9 4C 8D 44 24 40 0F 57 C0 "
                      "8B D7 48 8B CE",
-    /* result */     &reinterpret_cast<void*>(GetBaseActorValue_Entry)
+    /* result */     reinterpret_cast<void**>(&GetBaseActorValue_Entry)
 );
 
 /**
@@ -502,7 +503,7 @@ const CodeSignature kImproveSkillLevel_PatchSig(
 */
 const CodeSignature kImprovePlayerSkillPoints_PatchSig(
     /* name */        "ImprovePlayerSkillPoints",
-    /* hook_type */   HookType::Branch6,
+    /* hook_type */   HookType::Jump6,
     /* hook */        reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Hook),
     /* sig */         "48 8B C4 57 41 54 41 55 41 56 41 57 48 81 EC 80 01 00 "
                       "00 48 C7 44 24 48 FE FF FF FF",
@@ -522,7 +523,7 @@ const CodeSignature kImproveLevelExpBySkillLevel_PatchSig(
     /* name */       "ImproveLevelExpBySkillLevel",
     /* hook_type */  HookType::Call6,
     /* hook */       reinterpret_cast<uintptr_t>(ImproveLevelExpBySkillLevel_Wrapper),
-    /* sig */        kHook_ImprovePlayerSkillPointsSig.sig,
+    /* sig */        kImprovePlayerSkillPoints_PatchSig.sig,
     /* patch_size */ 8,
     /* trampoline */ nullptr,
     /* offset */     0x2D7
@@ -594,7 +595,7 @@ const CodeSignature kImproveLevelExpBySkillLevel_PatchSig(
 */
 const CodeSignature kImproveAttributeWhenLevelUp_PatchSig(
     /* name */       "ImproveAttributeWhenLevelUp",
-    /* hook_type */  HookType::Branch6,
+    /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(ImproveAttributeWhenLevelUp_Hook),
     /* sig */        "0F B6 DA 48 8B F9 48 8B 15 ? ? ? ? 48 81 C2 28 01 00 "
                      "00 48 8B 0D ? ? ? ? E8 ? ? ? ? 84 C0 0F 84 BA 00 00 "
@@ -717,7 +718,7 @@ FUN_1403d8870
  */
 const CodeSignature kGetEffectiveSkillLevel_PatchSig(
     /* name */       "GetEffectiveSkillLevel",
-    /* hook_type */  HookType::Branch6,
+    /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(GetEffectiveSkillLevel_Hook),
     /* sig */        "4C 8B DC 55 56 57 41 56 41 57 48 83 EC 50 49 C7 43 A8 "
                      "FE FF FF FF 49 89 5B 08 0F 29 74 24 40 0F 29 7C 24 30 "
@@ -767,7 +768,7 @@ const CodeSignature kGetEffectiveSkillLevel_PatchSig(
  */
 const CodeSignature kDisplayTrueSkillLevel_PatchSig(
     /* name */       "DisplayTrueSkillLevel",
-    /* hook_type */  HookType::Branch6,
+    /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(DisplayTrueSkillLevel_Hook),
     /* sig */        "FF 50 08 F3 0F 2C C8 81 F9 00 00 00 80 74 1E 66 0F 6E "
                      "C9 0F 5B C9 0F 2E C8 74 12 0F 14 C0 0F 50 C0 83 E0 01 "
@@ -830,7 +831,7 @@ GetLevel(
  */
 void
 ApplyGamePatches() {
-    const kNumSigs = sizeof(kGameSignatures) / sizeof(const CodeSignature*);
+    const size_t kNumSigs = sizeof(kGameSignatures) / sizeof(const CodeSignature*);
     uintptr_t real_addrs[kNumSigs];
 
     _MESSAGE("Applying game patches...");
@@ -854,16 +855,17 @@ ApplyGamePatches() {
         auto sig = kGameSignatures[i];
         uintptr_t real_address = real_addrs[i];
         size_t hook_size = HookType::Size(sig->hook_type);
+        size_t return_address = real_address + hook_size;
 
         ASSERT(hook_size <= sig->patch_size);
-        ASSERT(!(sig->hook) == ((sig->hook_type != HookType::None)
-                             && (sig->hook_type != HookType::Nop)));
+        ASSERT(!(sig->hook) == ((sig->hook_type == HookType::None)
+                             || (sig->hook_type == HookType::Nop)));
 
         // Install the trampoline, if necessary.
         if (sig->return_trampoline) {
             ASSERT(sig->hook_type != HookType::None);
             ASSERT(sig->hook_type != HookType::Nop);
-            *(sig->return_trampoline) = real_address + hook_size;
+            *(sig->return_trampoline) = return_address;
         }
 
         // Install the hook/result.
@@ -899,7 +901,7 @@ ApplyGamePatches() {
         // Overwrite the rest of the instructions with NOPs. We do this with
         // every hook to ensure the best compatibility with other SKSE
         // plugins.
-        SafeMemSet(GetRetAddr(), kNop, sig->patch_size - hook_size);
+        SafeMemSet(return_address, kNop, sig->patch_size - hook_size);
 
         // FIXME: Gross hack until this gets its own signature.
         if (sig == &kImproveAttributeWhenLevelUp_PatchSig) {

@@ -6,6 +6,7 @@
 #include "GameSettings.h"
 
 #include "Hook_Skill.h"
+#include "HookWrappers.h"
 #include "Settings.h"
 #include "RelocFn.h"
 
@@ -128,7 +129,7 @@ void ImproveSkillByTraining_Hook(void* pPlayer, UInt32 skillID, UInt32 count)
 }
 #endif
 
-static void
+void
 ImprovePlayerSkillPoints_Hook(
     PlayerSkills* skillData,
     UInt32 skillID,
@@ -214,7 +215,7 @@ GetSkillCap_Hook(
 float
 GetEffectiveSkillLevel_Hook(
     void *av,
-    uint32_t skill_id
+    UInt32 skill_id
 ) {
     float val = GetEffectiveSkillLevel_Original(av, skill_id);
 

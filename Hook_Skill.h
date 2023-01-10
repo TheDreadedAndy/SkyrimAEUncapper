@@ -7,6 +7,8 @@
 #ifndef __SKYRIM_UNCAPPER_AE_HOOK_SKILL_H__
 #define __SKYRIM_UNCAPPER_AE_HOOK_SKILL_H__
 
+#include "GameFormComponents.h"
+
 void ImprovePlayerSkillPoints_Hook(
     PlayerSkills *skill_data,
     UInt32 skill_id,

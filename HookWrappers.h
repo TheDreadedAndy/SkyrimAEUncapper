@@ -8,8 +8,6 @@
 #ifndef __SKYRIM_UNCAPPER_AE_HOOK_WRAPPERS_H__
 #define __SKYRIM_UNCAPPER_AE_HOOK_WRAPPERS_H__
 
-#include <cstdint>
-
 extern "C" void SkillCapPatch_Wrapper(void);
 extern "C" void ModifyPerkPool_Wrapper(void);
 extern "C" void ImproveLevelExpBySkillLevel_Wrapper(void);
