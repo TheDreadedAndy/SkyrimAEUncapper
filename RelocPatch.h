@@ -1,5 +1,5 @@
 /**
- * @file RelocFn.h
+ * @file RelocPatch.h
  * @author Andrew Spaulding (Kasplat)
  * @brief Provides an interface for finding assembly hooks within the AE EXE.
  * @bug No known bugs.
@@ -17,8 +17,8 @@
  * I miss Rust.
  */
 
-#ifndef __SKYRIM_UNCAPPER_AE_RELOC_FN_H__
-#define __SKYRIM_UNCAPPER_AE_RELOC_FN_H__
+#ifndef __SKYRIM_UNCAPPER_AE_RELOC_PATCH_H__
+#define __SKYRIM_UNCAPPER_AE_RELOC_PATCH_H__
 
 #include <cstddef>
 #include <cstdint>
@@ -46,7 +46,7 @@ const size_t kDirectJumpPatchSize = 5;
 /// @brief Encodes the various types of hooks which can be injected.
 class HookType {
 public:
-    enum t { None, Branch5, Branch6, Call5, Call6, DirectCall, DirectJump };
+    enum t { None, Branch5, Branch6, Call5, Call6, DirectCall, DirectJump, Nop };
 
     static size_t
     Size(
@@ -55,6 +55,9 @@ public:
         size_t ret = 0;
 
         switch (type) {
+            case Nop:
+                ret = 0;
+                break;
             case Branch5:
             case Call5:
                 ret = 5;
@@ -77,8 +80,8 @@ public:
     }
 };
 
-/// @brief Describes a function to be hooked into by a RelocFn<T>.
-struct FunctionSignature {
+/// @brief Describes a patch to be applied by a RelocPatch<T>.
+struct PatchSignature {
     const char* name;
     HookType::t hook_type;
     const char* sig;
@@ -88,8 +91,8 @@ struct FunctionSignature {
     size_t instr_size;
 
     /**
-     * @brief Creates a new function signature structure.
-     * @param name The name of the function signature.
+     * @brief Creates a new patch signature structure.
+     * @param name The name of the patch signature.
      * @param hook_type The type of hook to be inserted, or None.
      * @param sig The hex signature to search for.
      * @param patch_size The size of the code to be overwritten.
@@ -99,7 +102,7 @@ struct FunctionSignature {
      * @param instr_size The size of the instruction being indirected through,
      *                   or 0.
      */
-    FunctionSignature(
+    PatchSignature(
         const char* name,
         HookType::t hook_type,
         const char* sig,
@@ -118,24 +121,32 @@ struct FunctionSignature {
 };
 
 template<typename T>
-class RelocFn {
+class RelocPatch {
   private:
-    const FunctionSignature *sig;
+    const PatchSignature *sig;
     bool hook_done = false;
     uintptr_t real_address = 0;
 
   public:
     /**
-     * @brief Constructs a new relocatable function hook.
-     * @param sig The signature describing the function hook.
+     * @brief Constructs a new relocatable patch.
+     * @param sig The signature describing the patch.
      */
-    RelocFn(
-        const FunctionSignature *sig
+    RelocPatch(
+        const PatchSignature *sig
     ) : sig(sig)
     {}
 
     /**
-     * @brief Dereferences this relocatable function to its underlying data.
+     * @brief Dereferences the data contained by the patch
+     */
+    T &operator *() {
+        Resolve();
+        return * reinterpret_cast<T*>(real_address);
+    }
+
+    /**
+     * @brief Dereferences this relocatable patch to its underlying data.
      */
     T *operator->() {
         Resolve();
@@ -178,7 +189,7 @@ class RelocFn {
     }
 
     /**
-     * @brief Gets the address that should be returned to from the hook.
+     * @brief Gets the address that should be returned to from the patch.
      */
     uintptr_t
     GetRetAddr() {
@@ -187,13 +198,13 @@ class RelocFn {
     }
 
     /**
-     * @brief Writes the hook to the given address.
+     * @brief Writes the patch, redirecting to the given address if applicable.
      *
-     * It is illegal to install a hook more than once.
+     * It is illegal to apply a patch more than once.
      */
     void
-    Hook(
-        uintptr_t target
+    Apply(
+        uintptr_t target = 0
     ) {
         Resolve();
 
@@ -221,6 +232,8 @@ class RelocFn {
             case HookType::DirectJump:
                 ASSERT(SafeWriteJump(real_address, target));
                 break;
+            case HookType::Nop:
+                break;
             default:
                 HALT("Cannot install a hook with an invalid type");
         }
@@ -234,4 +247,4 @@ class RelocFn {
     }
 };
 
-#endif /* __SKYRIM_UNCAPPER_AE_RELOC_FN_H__ */
+#endif /* __SKYRIM_UNCAPPER_AE_RELOC_PATCH_H__ */

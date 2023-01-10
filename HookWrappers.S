@@ -10,12 +10,12 @@
 
 .CODE
 
-EXTERN ClampSkillEffect:PROC
 EXTERN GetSkillCap_Hook:PROC
 EXTERN ModifyPerkPool_Hook:PROC
 EXTERN ImproveLevelExpBySkillLevel_Hook:PROC
 EXTERN ImprovePlayerSkillPoints_ReturnTrampoline:PTR
 EXTERN ImproveAttributeWhenLevelUp_ReturnTrampoline:PTR
+EXTERN GetCurrentActorValue_ReturnTrampoline:PTR
 
 ; Saves all caller saved registers, except rax.
 BEGIN_INJECTED_CALL MACRO
@@ -62,15 +62,6 @@ RESTOREALL MACRO
     END_INJECTED_CALL
     pop rax
 ENDM
-
-; Our hook for this function tails into it, so no need to save regs.
-SkillEffectiveCapPatch_Wrapper PROC PUBLIC
-    mov rcx, rbx ; Pass ID from RBX as first arg. Xmm0 and xmm1 has cur val.
-    call ClampSkillEffect
-    add rsp, 20h ; These next lines are just a copy of the og ret code.
-    pop rbx
-    ret
-SkillEffectiveCapPatch_Wrapper ENDP
 
 ; This function gets injected in the middle of another, so we must use the call
 ; injection macros to protect the register state.
@@ -131,5 +122,14 @@ ImproveAttributeWhenLevelUp_Original PROC PUBLIC
     sub rsp, 30h
     jmp ImproveAttributeWhenLevelUp_ReturnTrampoline
 ImproveAttributeWhenLevelUp_Original ENDP
+
+; This function allows us to call the OG GetCurrentActorValue function by
+; running the overwritten instructions and then jumping to the address after
+; our hook.
+GetCurrentActorValue_Original PROC PUBLIC
+    mov qword ptr [rsp + 8h], rbx
+    mov qword ptr [rsp + 18h], rsi
+    jmp GetCurrentActorValue_ReturnTrampoline
+GetCurrentActorValue_Original ENDP
 
 END

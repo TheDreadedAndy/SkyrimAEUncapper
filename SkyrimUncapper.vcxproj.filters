@@ -50,7 +50,7 @@
     <ClInclude Include="SafeMemSet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RelocFn.h">
+    <ClInclude Include="RelocPatch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="HookWrappers.h">

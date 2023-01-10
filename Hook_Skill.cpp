@@ -10,7 +10,7 @@
 #include "HookWrappers.h"
 #include "Settings.h"
 #include "Signatures.h"
-#include "RelocFn.h"
+#include "RelocPatch.h"
 
 using LevelData = PlayerSkills::StatData::LevelData;
 
@@ -34,33 +34,35 @@ typedef float(*_GetEffectiveSkillLevel)(ActorValueOwner *, UInt32 skillID);
  * @brief Local hooks for the functions we modify.
  */
 ///@{
-static RelocFn<uintptr_t*> kHook_ModifyPerkPool(&kHook_ModifyPerkPoolSig);
-static RelocFn<uintptr_t*> kHook_SkillCapPatch(&kHook_SkillCapPatchSig);
-static RelocFn<_ImproveSkillLevel> kHook_ImproveSkillLevel(&kHook_ImproveSkillLevelSig);
-static RelocFn<_ImprovePlayerSkillPoints> kHook_ImprovePlayerSkillPoints(&kHook_ImprovePlayerSkillPointsSig);
-static RelocFn<void*> kHook_ImproveLevelExpBySkillLevel(&kHook_ImproveLevelExpBySkillLevelSig);
-static RelocFn<_ImproveAttributeWhenLevelUp> kHook_ImproveAttributeWhenLevelUp(&kHook_ImproveAttributeWhenLevelUpSig);
-static RelocFn<_GetEffectiveSkillLevel> kHook_GetEffectiveSkillLevel(&kHook_GetEffectiveSkillLevelSig);
+static RelocPatch<uintptr_t*> kHook_ModifyPerkPool(&kHook_ModifyPerkPoolSig);
+static RelocPatch<uintptr_t*> kHook_SkillCapPatch(&kHook_SkillCapPatchSig);
+static RelocPatch<_ImproveSkillLevel> kHook_ImproveSkillLevel(&kHook_ImproveSkillLevelSig);
+static RelocPatch<_ImprovePlayerSkillPoints> kHook_ImprovePlayerSkillPoints(&kHook_ImprovePlayerSkillPointsSig);
+static RelocPatch<void*> kHook_ImproveLevelExpBySkillLevel(&kHook_ImproveLevelExpBySkillLevelSig);
+static RelocPatch<_ImproveAttributeWhenLevelUp> kHook_ImproveAttributeWhenLevelUp(&kHook_ImproveAttributeWhenLevelUpSig);
+static RelocPatch<_GetEffectiveSkillLevel> kHook_GetEffectiveSkillLevel(&kHook_GetEffectiveSkillLevelSig);
+static RelocPatch<_GetCurrentActorValue> kHook_GetCurrentActorValue(&kHook_GetCurrentActorValueSig);
 ///@}
 
 /**
  * @brief Local hooks for the game functions that we call.
  */
 ///@{
-static RelocFn<_GetLevel> GetLevel(&GetLevelSig);
-static RelocFn<_GetBaseActorValue> GetBaseActorValue(&GetBaseActorValueSig);
+static RelocPatch<_GetLevel> GetLevel(&GetLevelSig);
+static RelocPatch<_GetBaseActorValue> GetBaseActorValue(&GetBaseActorValueSig);
 ///@}
 
 /**
- * @brief Used by the OG game functions we replace to return to their 
+ * @brief Used by the OG game functions we replace to return to their
  *        unmodified implementations.
- * 
+ *
  * Boing!
  */
 ///@{
 extern "C" {
     uintptr_t ImprovePlayerSkillPoints_ReturnTrampoline;
     uintptr_t ImproveAttributeWhenLevelUp_ReturnTrampoline;
+    uintptr_t GetCurrentActorValue_ReturnTrampoline;
 }
 ///@}
 
@@ -258,27 +260,28 @@ extern "C" float GetSkillCap_Hook(UInt32 skillID)
     return settings.GetSkillCap(skillID);
 }
 
-extern "C" float ClampSkillEffect(uint32_t skillID, const float val)
-{
-    float cap = settings.GetSkillFormulaCap(skillID);
-    return (val <= 0) ? 0 : ((val >= cap) ? cap : val);
+/**
+ * @brief Overwrites the GetCurrentActorValue function, clamping the output
+ *        to the configured effective cap.
+ * @param av Unknown. The actor this is operating on?
+ * @param skill_id The raw ID of the skill.
+ */
+static float
+GetCurrentActorValue_Hook(
+    void *av,
+    uint32_t skill_id
+) {
+    float val = GetCurrentActorValue_Original(av, skill_id);
+
+    if (settings.IsManagedSkill(skill_id)) {
+        float cap = settings.GetSkillFormulaCap(skill_id);
+        val = (val <= 0) ? 0 : ((val >= cap) ? cap : val);
+    }
+
+    return val;
 }
 
 #if 0
-float GetCurrentActorValue_Hook(void* avo, UInt32 skillID)   //PC&NPC  //61F6C0
-{
-    float skillLevel = GetCurrentActorValue_Original(avo, skillID);
-    if ((skillID >= 6) && (skillID <= 23))
-    {
-        UInt32 skillFormulaCap = settings.settingsSkillFormulaCaps[skillID - 6];
-        skillLevel = (skillLevel > skillFormulaCap) ? skillFormulaCap : skillLevel;
-#ifdef _DEBUG
-        //_MESSAGE("function: %s, skillID: %d, skillLevel:%.2f, skillFormulaCap: %d, this:%p", __FUNCTION__, skillID, skillLevel, settings.settingsSkillFormulaCaps[skillID - 6], avo);
-#endif
-    }
-    return skillLevel;
-}
-
 void LegendaryResetSkillLevel_Hook(float baseLevel, UInt32 skillID)
 {
     if ((*g_gameSettingCollection) != nullptr)
@@ -336,15 +339,17 @@ void Hook_Skill_Commit()
     // Set up the return trampolines for our reimplemented game function calls.
     ImprovePlayerSkillPoints_ReturnTrampoline = kHook_ImprovePlayerSkillPoints.GetRetAddr();
     ImproveAttributeWhenLevelUp_ReturnTrampoline = kHook_ImproveAttributeWhenLevelUp.GetRetAddr();
+    GetCurrentActorValue_ReturnTrampoline = kHook_GetCurrentActorValue.GetRetAddr();
 
     // The hooks!
-    kHook_GetEffectiveSkillLevel.Hook(reinterpret_cast<uintptr_t>(SkillEffectiveCapPatch_Wrapper));
-    kHook_SkillCapPatch.Hook(reinterpret_cast<uintptr_t>(SkillCapPatch_Wrapper));
-    kHook_ModifyPerkPool.Hook(reinterpret_cast<uintptr_t>(ModifyPerkPool_Wrapper));
-    kHook_ImproveSkillLevel.Hook(reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Original));
-    kHook_ImproveLevelExpBySkillLevel.Hook(reinterpret_cast<uintptr_t>(ImproveLevelExpBySkillLevel_Wrapper));
-    kHook_ImprovePlayerSkillPoints.Hook(reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Hook));
-    kHook_ImproveAttributeWhenLevelUp.Hook(reinterpret_cast<uintptr_t>(ImproveAttributeWhenLevelUp_Hook));
+    kHook_GetEffectiveSkillLevel.Apply();
+    kHook_SkillCapPatch.Apply(reinterpret_cast<uintptr_t>(SkillCapPatch_Wrapper));
+    kHook_ModifyPerkPool.Apply(reinterpret_cast<uintptr_t>(ModifyPerkPool_Wrapper));
+    kHook_ImproveSkillLevel.Apply(reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Original));
+    kHook_ImproveLevelExpBySkillLevel.Apply(reinterpret_cast<uintptr_t>(ImproveLevelExpBySkillLevel_Wrapper));
+    kHook_ImprovePlayerSkillPoints.Apply(reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Hook));
+    kHook_ImproveAttributeWhenLevelUp.Apply(reinterpret_cast<uintptr_t>(ImproveAttributeWhenLevelUp_Hook));
+    kHook_GetCurrentActorValue.Apply(reinterpret_cast<uintptr_t>(GetCurrentActorValue_Hook));
 
     // FIXME: This should probably have its own signature.
     SafeWrite8(kHook_ImproveAttributeWhenLevelUp.GetUIntPtr() + 0x9B, 0);

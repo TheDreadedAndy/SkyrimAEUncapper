@@ -13,7 +13,7 @@
 
 #include <cstddef>
 
-#include "RelocFn.h"
+#include "RelocPatch.h"
 
 /**
  * @brief The signature and offset used to hook into the perk pool modification
@@ -22,7 +22,7 @@
  * Upon entry into our hook, we run our function. We then reimplement the final
  * few instructions in the return path of the function we hooked into. This way,
  * we need only modify one instruction and can still use the RelocFn interface.
- * 
+ *
  * The assembly for this signature is as follows:
  * 48 85 c0        TEST       RAX,RAX
  * 74 34           JZ         LAB_1408f678f
@@ -53,7 +53,7 @@
  * 5f              POP        RDI
  * c3              RET
  */
-const FunctionSignature kHook_ModifyPerkPoolSig(
+const PatchSignature kHook_ModifyPerkPoolSig(
     /* name */        "kHook_ModifyPerkPool",
     /* hook_type */   HookType::Branch6,
     /* sig */         "48 85 C0 74 ? 66 0F 6E ? 0F 5B C0 F3 0F 58 40 34 F3 0F "
@@ -109,7 +109,7 @@ const FunctionSignature kHook_ModifyPerkPoolSig(
  * Note that the code being patched expects the current skill level in XMM0 and
  * the maximum skill level in XMM10.
  */
-const FunctionSignature kHook_SkillCapPatchSig(
+const PatchSignature kHook_SkillCapPatchSig(
     /* name */        "kHook_SkillCapPatch",
     /* hook_type */   HookType::Call6,
     /* sig */         "48 8B 0D ? ? ? ? 48 81 C1 B8 00 00 00 48 8B 01 FF 50 "
@@ -158,7 +158,7 @@ Calls ImprovePlayerSkillPoints offset:0x14070ee08-0x1406ca9b0=0x44458
        14070ee20 4c 8b 64        MOV        R12,qword ptr [RSP + local_20]
                  24 58
 */
-const FunctionSignature kHook_ImproveSkillLevelSig(
+const PatchSignature kHook_ImproveSkillLevelSig(
     /* name */        "kHook_ImproveSkillLevel",
     /* hook_type */   HookType::Call5,
     /* sig */         "F3 0F 10 54 9F 10 41 3B F4 F3 0F 5C 54 9F 0C 0F 92 C0 "
@@ -188,7 +188,7 @@ const FunctionSignature kHook_ImproveSkillLevelSig(
                  24 48 fe
                  ff ff ff
 */
-const FunctionSignature kHook_ImprovePlayerSkillPointsSig(
+const PatchSignature kHook_ImprovePlayerSkillPointsSig(
     /* name */        "kHook_ImprovePlayerSkillPoints",
     /* hook_type */   HookType::Branch6,
     /* sig */         "48 8B C4 57 41 54 41 55 41 56 41 57 48 81 EC 80 01 00 "
@@ -200,11 +200,11 @@ const FunctionSignature kHook_ImprovePlayerSkillPointsSig(
  * @brief TODO
  *
  * FIXME: It would probably be more stable to give this its own signature.
- * 
+ *
  * const unsigned char expectedCode[] = {0xf3, 0x0f, 0x58, 0x08, 0xf3, 0x0f, 0x11, 0x08};
  * ASSERT(memcmp((void*)(kHook_ImproveLevelExpBySkillLevel.GetUIntPtr()), expectedCode, sizeof(expectedCode)) == 0);
  */
-const FunctionSignature kHook_ImproveLevelExpBySkillLevelSig(
+const PatchSignature kHook_ImproveLevelExpBySkillLevelSig(
     /* name */        "kHook_ImproveLevelExpBySkillLevel",
     /* hook_type */   HookType::Call6,
     /* sig */         kHook_ImprovePlayerSkillPointsSig.sig,
@@ -276,7 +276,7 @@ const FunctionSignature kHook_ImproveLevelExpBySkillLevelSig(
                  15 b3 5d
                  5a 01
 */
-const FunctionSignature kHook_ImproveAttributeWhenLevelUpSig(
+const PatchSignature kHook_ImproveAttributeWhenLevelUpSig(
     /* name */        "ImproveAttributeWhenLevelUp",
     /* hook_type */   HookType::Branch6,
     /* sig */         "0F B6 DA 48 8B F9 48 8B 15 ? ? ? ? 48 81 C2 28 01 00 "
@@ -293,7 +293,7 @@ const FunctionSignature kHook_ImproveAttributeWhenLevelUpSig(
 /**
  * @brief TODO
  */
-const FunctionSignature GetLevelSig(
+const PatchSignature GetLevelSig(
     /* name */            "GetLevel",
     /* hook_type */       HookType::None,
     /* sig */             "84 C0 74 24 48 8B CB E8 ? ? ? ? 0F B7 C8 48 8B D7 "
@@ -349,17 +349,45 @@ const FunctionSignature GetLevelSig(
 */
 #endif
 
-#if 0
-    //GetCurrentActorValue                    = RVAScan<_GetCurrentActorValue>(GET_RVA(GetCurrentActorValue), "4C 8B 44 F8 08 41 8B 40 60 C1 E8 12 A8 01 74 38 48 8B 49 40 48 85 C9 74 2F 48 83 79 50 00 74 28 40 B5 01 0F 57 C0 F3 0F 11 44 24 78 4C 8D 44 24 78 8B D7", -0x2C);
-/*
-ulonglong UndefinedFunction_140620d60
-                    (undefined8 param_1,undefined8 param_2,longlong param_3,int param_4,
-                    undefined8 param_5,undefined8 param_6)
-After AE
-ulonglong FUN_1406462a0(undefined8 param_1,undefined8 param_2,longlong param_3,int param_4)
-params count changed or wrong function?
-*/
-#endif
+/**
+ * @brief Hooks into the GetCurrentActorValue function to clamp its result.
+ *
+ * This patch simply tails into our GetCurrentActorValue_Hook() function. We
+ * Additionally provide a GetCurrentActorValue_Original function which skips
+ * our hook and performs the code our hook replaced. Note that the original
+ * function cannot be used until the GetCurrentActorValue_ReturnTrampoline has
+ * been set to the value determined by the patch.
+ *
+ * The assembly we are replacing is as follows:
+ * ### HOOK REDIRECTS FROM HERE ###
+ * 48 89 5c 24 08           mov    %rbx,0x8(%rsp)
+ * 48 89 74 24 18           mov    %rsi,0x18(%rsp)
+ * ### END HOOK ###
+ * 57                       push   %rdi
+ * 48 83 ec 30              sub    $0x30,%rsp
+ * 48 8b 05 62 fb 8f 01     mov    0x18ffb62(%rip),%rax        # 0x141f58128
+ * 48 8b d9                 mov    %rcx,%rbx
+ * 48 63 fa                 movslq %edx,%rdi
+ * 4c 8b 44 f8 08           mov    0x8(%rax,%rdi,8),%r8
+ * 41 8b 40 60              mov    0x60(%r8),%eax
+ * c1 e8 13                 shr    $0x13,%eax
+ * a8 01                    test   $0x1,%al
+ * 74 46                    je     0x140658622
+ * 48 8b 49 40              mov    0x40(%rcx),%rcx
+ * 48 85 c9                 test   %rcx,%rcx
+ * 74 3d                    je     0x140658622
+ * 48 83 79 50 00           cmpq   $0x0,0x50(%rcx)
+ * 74 36                    je     0x140658622
+ */
+const PatchSignature kHook_GetCurrentActorValueSig(
+    /* name */        "GetCurrentActorValue",
+    /* hook_type */   HookType::Branch6,
+    /* sig */         "48 89 5c 24 08 48 89 74 24 18 57 48 83 ec 30 48 8b 05 "
+                      "? ? ? ? 48 8b d9 48 63 fa 4c 8b 44 f8 08 41 8b 40 60 "
+                      "c1 e8 13 a8 01 74 46 48 8b 49 40 48 85 c9 74 3d 48 83 "
+                      "79 50 00 74 36",
+    /* patch_size */  10
+);
 
 /**
  * @brief TODO
@@ -405,7 +433,7 @@ ulonglong FUN_140646370(undefined8 param_1,undefined8 param_2,longlong param_3,i
        1406463c6 48 81 c1        ADD        RCX,0xe8
                  e8 00 00 00
 */
-const FunctionSignature GetBaseActorValueSig(
+const PatchSignature GetBaseActorValueSig(
     /* name */       "GetBaseActorValue",
     /* hook_type */  HookType::None,
     /* sig */        "48 89 5C 24 18 48 89 74 24 20 57 48 83 EC 30 48 63 FA "
@@ -446,6 +474,12 @@ FUN_1403d8870
  *
  * FIXME: This hook doesn't seem to be working.
  *
+ * Ok, so heres the shit. It seems this hook originally just killed the MIN
+ * (I think, I don't have access to all of the OG code). Then, a different
+ * hook was used to actually cap the formulas. I'm going to try to bring that
+ * original, working, implementation back. Step one is to replace this hook
+ * with one that just NOPs the MINSS out.
+ *
 Before AE
 undefined8 FUN_1403e5250(longlong *param_1,int param_2)
 After AE
@@ -466,10 +500,11 @@ ulonglong FUN_1403fdf00(longlong *param_1,int param_2)
        1403fdf25 c1 e8 04        SHR        EAX,0x4
        1403fdf28 a8 01           TEST       AL,0x1
        1403fdf2a 74 18           JZ         LAB_1403fdf44
-       ### OUR ENTRY POINT ###
+       ### OVERWRITTEN WITH NOPS ###
        1403fdf2c f3 0f 5d        MINSS      XMM1,dword ptr [DAT_14161af50]                   = 42C80000h
                  0d 1c d0
                  21 01
+       ### END OVERWRITE ###
        1403fdf34 0f 57 c0        XORPS      XMM0,XMM0
        1403fdf37 f3 0f 5f c8     MAXSS      XMM1,XMM0
        1403fdf3b 0f 28 c1        MOVAPS     XMM0,XMM1
@@ -485,14 +520,14 @@ skill? range. min(100,val) and max(0,val). replacing MINSS with nop
        1403fdf34 0f 57 c0        XORPS      XMM0,XMM0
        1403fdf37 f3 0f 5f c8     MAXSS      XMM1,XMM0
 */
-const FunctionSignature kHook_GetEffectiveSkillLevelSig(
+const PatchSignature kHook_GetEffectiveSkillLevelSig(
     /* name */        "GetEffectiveSkillLevel",
-    /* hook_type */   HookType::Branch6,
+    /* hook_type */   HookType::Nop,
     /* sig */         "40 53 48 83 EC 20 48 8B 01 48 63 DA 8B D3 FF 50 08 48 "
                       "8B 05 ? ? ? ? 0F 28 C8 48 8B 4C D8 08 8B 51 60 8B C2 "
                       "C1 E8 04 A8 01 74 18 F3 0F 5D 0D",
     /* patch_size */  8,
-    /* hook_offset */ 0x2C
+    /* hook_offset */ 0x2c
 );
 
 #endif /* __SKYRIM_SSE_SKILL_UNCAPPER_SIGNATURES_H__ */

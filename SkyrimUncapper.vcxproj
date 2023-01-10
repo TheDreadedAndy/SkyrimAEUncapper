@@ -30,7 +30,7 @@
     <ClInclude Include="Hook_Skill.h" />
     <ClInclude Include="reg2k\Pattern.h" />
     <ClInclude Include="reg2k\RVA.h" />
-    <ClInclude Include="RelocFn.h" />
+    <ClInclude Include="RelocPatch.h" />
     <ClInclude Include="SafeMemSet.h" />
     <ClInclude Include="Settings.h" />
     <ClInclude Include="Signatures.h" />
