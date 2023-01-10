@@ -63,6 +63,7 @@ extern "C" {
     uintptr_t ImprovePlayerSkillPoints_ReturnTrampoline;
     uintptr_t ImproveAttributeWhenLevelUp_ReturnTrampoline;
     uintptr_t GetCurrentActorValue_ReturnTrampoline;
+    uintptr_t GetEffectiveSkillLevel_ReturnTrampoline;
 }
 ///@}
 
@@ -281,6 +282,21 @@ GetCurrentActorValue_Hook(
     return val;
 }
 
+static float
+GetEffectiveSkillLevel_Hook(
+    void *av,
+    uint32_t skill_id
+) {
+    float val = GetEffectiveSkillLevel_Original(av, skill_id);
+    
+    if (settings.IsManagedSkill(skill_id)) {
+        float cap = settings.GetSkillFormulaCap(skill_id);
+        val = (val <= 0) ? 0 : ((val >= cap) ? cap : val);
+    }
+
+    return val;
+}
+
 #if 0
 void LegendaryResetSkillLevel_Hook(float baseLevel, UInt32 skillID)
 {
@@ -340,9 +356,10 @@ void Hook_Skill_Commit()
     ImprovePlayerSkillPoints_ReturnTrampoline = kHook_ImprovePlayerSkillPoints.GetRetAddr();
     ImproveAttributeWhenLevelUp_ReturnTrampoline = kHook_ImproveAttributeWhenLevelUp.GetRetAddr();
     GetCurrentActorValue_ReturnTrampoline = kHook_GetCurrentActorValue.GetRetAddr();
+    GetEffectiveSkillLevel_ReturnTrampoline = kHook_GetEffectiveSkillLevel.GetRetAddr();
 
     // The hooks!
-    kHook_GetEffectiveSkillLevel.Apply();
+    kHook_GetEffectiveSkillLevel.Apply(reinterpret_cast<uintptr_t>(GetEffectiveSkillLevel_Hook));
     kHook_SkillCapPatch.Apply(reinterpret_cast<uintptr_t>(SkillCapPatch_Wrapper));
     kHook_ModifyPerkPool.Apply(reinterpret_cast<uintptr_t>(ModifyPerkPool_Wrapper));
     kHook_ImproveSkillLevel.Apply(reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Original));

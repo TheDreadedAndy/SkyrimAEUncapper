@@ -16,6 +16,7 @@ EXTERN ImproveLevelExpBySkillLevel_Hook:PROC
 EXTERN ImprovePlayerSkillPoints_ReturnTrampoline:PTR
 EXTERN ImproveAttributeWhenLevelUp_ReturnTrampoline:PTR
 EXTERN GetCurrentActorValue_ReturnTrampoline:PTR
+EXTERN GetEffectiveSkillLevel_ReturnTrampoline:PTR
 
 ; Saves all caller saved registers, except rax.
 BEGIN_INJECTED_CALL MACRO
@@ -131,5 +132,15 @@ GetCurrentActorValue_Original PROC PUBLIC
     mov qword ptr [rsp + 18h], rsi
     jmp GetCurrentActorValue_ReturnTrampoline
 GetCurrentActorValue_Original ENDP
+
+GetEffectiveSkillLevel_Original PROC PUBLIC
+;    push rbx
+;    sub rsp, 20h
+    mov r11, rsp
+    push rbp
+    push rsi
+    push rdi
+    jmp GetEffectiveSkillLevel_ReturnTrampoline
+GetEffectiveSkillLevel_Original ENDP
 
 END
