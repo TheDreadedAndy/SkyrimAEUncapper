@@ -1,7 +1,13 @@
 /**
  * @file Hook_SKill.cpp
  * @author Kassant
- * @brief TODO
+ * @author Vadfromnu
+ * @author Andrew Spaulding (Kasplat)
+ * @brief C++ implementation of game patches.
+ * 
+ * Note that several of these functions first go through wrappers in
+ * HookWrappers.S. See the documentation in RelocPatch.cpp and HookWrappers.S
+ * for more information on how these patches are modifying the game.
  */
 
 #include "Hook_Skill.h"
@@ -53,7 +59,7 @@ GetFloatGameSetting(
     return val->data.f32;
 }
 
-float 
+static float 
 CalculateSkillExpForLevel(
     UInt32 skill_id,
     float skill_level
@@ -151,6 +157,12 @@ ImprovePlayerSkillPoints_Hook(
     ImprovePlayerSkillPoints_Original(skillData, skillID, exp, unk1, unk2, unk3, unk4);
 }
 
+/**
+ * @brief Multiplies the EXP gain of a level-up by our configured multiplier.
+ * @param exp The original exp gain.
+ * @param skill_id The skill which this exp is being gained from.
+ * @return The new exp multiplier.
+ */
 extern "C" float
 ImproveLevelExpBySkillLevel_Hook(
     float exp,
@@ -167,6 +179,10 @@ ImproveLevelExpBySkillLevel_Hook(
     return exp;
 }
 
+/**
+ * @brief Adjusts the carry weight/attribute gain at each level up based on
+ *        the settings in the INI file.
+ */
 UInt64
 ImproveAttributeWhenLevelUp_Hook(
     void* unk0,
@@ -191,6 +207,11 @@ ImproveAttributeWhenLevelUp_Hook(
     return ImproveAttributeWhenLevelUp_Original(unk0, unk1);
 }
 
+/**
+ * @brief Adjusts the number of perks the player receives at a level-up.
+ * @param count The original number of points the perk pool was being
+ *        adjusted by.
+ */
 extern "C" void
 ModifyPerkPool_Hook(
     SInt8 count

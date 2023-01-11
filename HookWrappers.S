@@ -1,10 +1,10 @@
 ;
 ; @file HookWrappers.S
 ; @author Andrew Spaulding (Kasplat)
+; @author Vadfromnu
+; @author Kassant
 ; @brief Assembly hook entry points for each hook.
-; @bug I am convinced that these hooks are tearing calling convention a new one.
-;
-; FIXME: Figure out if you actually need the red-zones.
+; @bug No known bugs.
 ;
 ; ASSEMBLY IS ASSEMBLY.
 ; ASSEMBLY BELONGS IN ASSEMBLY FILES.
@@ -73,13 +73,8 @@ ENDM
 SkillCapPatch_Wrapper PROC PUBLIC
     BEGIN_INJECTED_CALL
     mov ecx, esi    ; pass SkillID in ecx to hook.
-    sub rsp, 30h
-    movss dword ptr [rsp+28h], xmm0 ; Save current skill level
     call GetSkillCap_Hook
-    movd ecx, xmm10 ; Restore ecx.
     movss xmm10, xmm0 ; Replace maximum with fn result.
-    movss xmm0, dword ptr [rsp+28h] ; Restore current skill level.
-    add rsp, 30h
     END_INJECTED_CALL
     ret
 SkillCapPatch_Wrapper ENDP
@@ -87,25 +82,35 @@ SkillCapPatch_Wrapper ENDP
 ; This function is tailed into by our hook, so we dont need to worry about
 ; register saving.
 ModifyPerkPool_Wrapper PROC PUBLIC
-    sub rsp, 20h ; Standard red-zone.
     mov rcx, rdi ; AE changed rbx to rdi.
     call ModifyPerkPool_Hook
-    add rsp, 40h ; We reimplement the original return code as well here.
+    add rsp, 20h ; We reimplement the original return code as well here.
     pop rdi
     ret
 ModifyPerkPool_Wrapper ENDP
 
-; TODO: Not sure if just using our crap is safe here, check later.
+; Passes the EXP gain to our function for further modification.
+; Note that the code here is rather different than the OG implementation
+; because the original ImproveLevelExpBySkillLevel() function got inlined.
 ImproveLevelExpBySkillLevel_Wrapper PROC PUBLIC
-    SAVEALL
-    movss xmm0, xmm1 ; xmm1 level exp
-    mov rdx, rsi
-    sub rsp, 20h
+    sub rsp, 10h
+    movdqu [rsp], xmm6 ; Save xmm6, we will wipe it later.
+
+    SAVEALL ; Save all caller saved regs.
+
+    movss xmm0, xmm1 ; xmm1 contains level exp
+    mov rdx, rsi ; rsi contains skill_id.
     call ImproveLevelExpBySkillLevel_Hook
-    add rsp, 20h
-    RESTOREALL ; FIXME: Is it ok to wipe out XMM0 here? Intentional?
-    addss xmm0, dword ptr [rax] ; replaced code 1, but xmm0 instead of xmm1.
-    movss dword ptr [rax], xmm0 ; replaced code 2
+    movss xmm6, xmm0 ; Save result in xmm6.
+
+    RESTOREALL ; Restore all caller saved regs.
+
+    addss xmm6, dword ptr [rax] ; This is the code we overwrote, except we
+    movss dword ptr [rax], xmm6 ; now use xmm6 instead of xmm1.
+
+    movdqu xmm6, [rsp] ; Restore xmm6.
+    add rsp, 10h
+
     ret
 ImproveLevelExpBySkillLevel_Wrapper ENDP
 
@@ -142,12 +147,14 @@ GetEffectiveSkillLevel_Original ENDP
 ; Forces the code which displays skill values in the skills menu to show the
 ; true skill level instead of the damaged value by calling the OG function.
 DisplayTrueSkillLevel_Hook PROC PUBLIC
-    call GetEffectiveSkillLevel_Original
+    call GetEffectiveSkillLevel_Original ; Replacing a call, no need to save.
     cvttss2si ecx, xmm0
     jmp DisplayTrueSkillLevel_ReturnTrampoline
 DisplayTrueSkillLevel_Hook ENDP
 
 ; Allows the legendary button to be hidden based on an INI setting.
+; We are overwriting another function call here, so we dont need to save
+; the register state.
 HideLegendaryButton_Wrapper PROC PUBLIC
     mov ecx, edx
     call HideLegendaryButton_Hook

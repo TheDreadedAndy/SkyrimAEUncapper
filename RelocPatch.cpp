@@ -1,6 +1,8 @@
 /**
  * @file RelocPatch.cpp
  * @author Andrew Spaulding (Kasplat)
+ * @author Kassant
+ * @author Vadfromnu
  * @brief Finds code signatures within the game and applies patches to them.
  * @bug No known bugs.
  *

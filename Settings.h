@@ -3,6 +3,7 @@
  * @brief Defines the class which is used to load and interact with the settings
  *        specified by the player in the INI file.
  * @author Kassant.
+ * @author Andrew Spaulding (Kasplat)
  *
  * Rampaged through by Kasplat to change the interface/encapsulation to be
  * more clear.

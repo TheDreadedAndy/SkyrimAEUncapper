@@ -1,6 +1,8 @@
 /**
  * @file main.cpp
  * @author Kassant
+ * @author Vadfromnu
+ * @author Andrew Spaulding (Kasplat)
  * @brief Main SKSE library configuration.
  *
  * Cleaned up a little bit by Kasplat.

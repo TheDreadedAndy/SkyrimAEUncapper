@@ -1,6 +1,7 @@
 /**
  * @file Settings.cpp
- * @Author Kassant
+ * @author Kassant
+ * @author Andrew Spaulding (Kasplat)
  * @brief Manages INI file settings.
  *
  * Modified by Kasplat to clean up initialization.
@@ -33,7 +34,7 @@ do {\
         }\
     }\
     \
-    (LIST).Add(1, DEFAULT);\
+    (LIST).Add(0, DEFAULT);\
 } while (0)
 
 #define ReadFloatLevelListSection(INI, LIST, SECTION, DEFAULT)\
