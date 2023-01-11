@@ -167,13 +167,6 @@ struct CodeSignature {
 // FIXME
 #if 0
 typedef float(*_CalculateChargePointsPerUse)(float basePoints, float enchantingLevel);
-
-static RelocAddr <uintptr_t *> kHook_ExecuteLegendarySkill_Ent = 0x08C95FD;//get it when legendary skill by trace setbaseav.
-static RelocAddr <uintptr_t *> kHook_ExecuteLegendarySkill_Ret = 0x08C95FD + 0x6;
-
-static RelocAddr <uintptr_t *> kHook_CheckConditionForLegendarySkill_Ent = 0x08BF655;
-static RelocAddr <uintptr_t *> kHook_CheckConditionForLegendarySkill_Ret = 0x08BF655 + 0x13;
-
 static RelocAddr <_CalculateChargePointsPerUse> CalculateChargePointsPerUse_Original(0x03C0F10);
 #endif
 
@@ -351,11 +344,10 @@ static const CodeSignature kLegendaryResetSkillLevel_PatchSig(
     /* name */       "LegendaryResetSkillLevel",
     /* hook_type */  HookType::Call6,
     /* hook */       reinterpret_cast<uintptr_t>(LegendaryResetSkillLevel_Wrapper),
-    /* id */         0,
+    /* id */         52591,
     /* patch_size */ 6,
     /* trampoline */ nullptr,
-    /* offset */     0x1d7,
-    /* known */      0x90c430
+    /* offset */     0x1d7
 );
 
 /**
@@ -368,11 +360,10 @@ static const CodeSignature kCheckConditionForLegendarySkill_PatchSig(
     /* name */       "CheckConditionForLegendarySkill",
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(CheckConditionForLegendarySkill_Wrapper),
-    /* id */         0,
+    /* id */         52520,
     /* patch_size */ 0x13,
     /* trampoline */ &CheckConditionForLegendarySkill_ReturnTrampoline,
-    /* offset */     0x14e,
-    /* known */      0x902890
+    /* offset */     0x14e
 );
 
 /**
@@ -399,12 +390,6 @@ static const CodeSignature kHideLegendaryButton_PatchSig(
     /* trampoline */ &HideLegendaryButton_ReturnTrampoline,
     /* offset */     0x153
 );
-
-#if 0 // not updated code
-
-    g_branchTrampoline.Write6Branch(CalculateChargePointsPerUse_Original.GetUIntPtr(), (uintptr_t)CalculateChargePointsPerUse_Hook);
-
-#endif
 
 /**
  * @brief TODO
@@ -472,9 +457,8 @@ static const CodeSignature kImprovePlayerSkillPoints_PatchSig(
 );
 
 /**
- * @brief TODO
- *
- * FIXME: Should verify that this signature is correct against the one in the OG version.
+ * @brief Passes the EXP gain originally calculated by the game to our hook for
+ *        further modification.
  */
 static const CodeSignature kImproveLevelExpBySkillLevel_PatchSig(
     /* name */       "ImproveLevelExpBySkillLevel",
@@ -600,6 +584,12 @@ FUN_1403d8870
        1403d8895 e8 0a ee        CALL       API-MS-WIN-CRT-MATH-L1-1-0.DLL::powf             float powf(float _X, float _Y)
                  09 01
 */
+#endif
+
+#if 0 // not updated code
+
+    g_branchTrampoline.Write6Branch(CalculateChargePointsPerUse_Original.GetUIntPtr(), (uintptr_t)CalculateChargePointsPerUse_Hook);
+
 #endif
 
 /**
