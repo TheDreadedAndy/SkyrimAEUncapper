@@ -4,11 +4,6 @@
  * @brief TODO
  */
 
-// FIXME: Using the SKSE pointers for the player and game settings kills
-// version independence.
-
-// FIXME: RVAScan should assert that it found a signature.
-
 #include "Hook_Skill.h"
 
 #include "GameReferences.h"
@@ -34,7 +29,7 @@ GetPlayerBaseSkillLevel(
     unsigned int skill_id
 ) {
     return static_cast<unsigned int>(
-        GetBaseActorValue(reinterpret_cast<char*>(*g_thePlayer) + 0xB8, skill_id)
+        GetBaseActorValue(reinterpret_cast<char*>(GetPlayer()) + 0xB8, skill_id)
     );
 }
 
@@ -43,7 +38,7 @@ GetPlayerBaseSkillLevel(
  */
 static unsigned int
 GetPlayerLevel() {
-    return GetLevel(*g_thePlayer);
+    return GetLevel(GetPlayer());
 }
 
 /**
@@ -53,8 +48,7 @@ static float
 GetFloatGameSetting(
     const char* var
 ) {
-    ASSERT(*g_gameSettingCollection);
-    Setting* val = (*g_gameSettingCollection)->Get(var);
+    Setting* val = (GetGameSettings())->Get(var);
     ASSERT(val);
     return val->data.f32;
 }
@@ -115,7 +109,7 @@ void ImproveSkillByTraining_Hook(void* pPlayer, UInt32 skillID, UInt32 count)
             skillProgression = 0.0f;
         for (UInt32 i = 0; i < count; ++i)
         {
-            float skillLevel = GetBaseActorValue((char*)(*g_thePlayer) + 0xB0, skillID);
+            float skillLevel = GetPlayerBaseSkillLevel(skillID);
             float expRequired = CalculateSkillExpForLevel(skillID, skillLevel);
 #ifdef _DEBUG
             _MESSAGE("maxPoints:%.2f, expRequired:%.2f", levelData->pointsMax, expRequired);
@@ -176,8 +170,8 @@ ImproveAttributeWhenLevelUp_Hook(
     void* unk0,
     UInt8 unk1
 ) {
-    Setting *iAVDhmsLevelUp = (*g_gameSettingCollection)->Get("iAVDhmsLevelUp");
-    Setting *fLevelUpCarryWeightMod = (*g_gameSettingCollection)->Get("fLevelUpCarryWeightMod");
+    Setting *iAVDhmsLevelUp = (GetGameSettings())->Get("iAVDhmsLevelUp");
+    Setting *fLevelUpCarryWeightMod = (GetGameSettings())->Get("fLevelUpCarryWeightMod");
 
     ASSERT(iAVDhmsLevelUp);
     ASSERT(fLevelUpCarryWeightMod);
@@ -199,7 +193,7 @@ extern "C" void
 ModifyPerkPool_Hook(
     SInt8 count
 ) {
-    UInt8* points = &((*g_thePlayer)->numPerkPoints);
+    UInt8* points = &((GetPlayer())->numPerkPoints);
     if (count > 0) { // Add perk points
         UInt32 sum = settings.GetPerkDelta(GetPlayerLevel()) + *points;
         *points = (sum > 0xFF) ? 0xFF : static_cast<UInt8>(sum);
@@ -247,9 +241,8 @@ LegendaryResetSkillLevel_Hook(
     UInt32 skill_id
 ) {
     ASSERT(settings.IsManagedSkill(skill_id));
-    ASSERT(*g_gameSettingCollection);
 
-    Setting* reset_val = (*g_gameSettingCollection)->Get("fLegendarySkillResetValue");
+    Setting* reset_val = (GetGameSettings())->Get("fLegendarySkillResetValue");
     ASSERT(reset_val);
     reset_val->data.f32 = settings.GetPostLegendarySkillLevel(
         reset_val->data.f32,

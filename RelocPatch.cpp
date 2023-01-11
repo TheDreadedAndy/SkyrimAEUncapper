@@ -148,7 +148,7 @@ struct CodeSignature {
         unsigned long long id,
         void **result
 #ifdef _DEBUG
-        , uintptr_t real_address = 0
+        , uintptr_t known_offset = 0
 #endif
     ) : name(name),
         hook_type(HookType::None),
@@ -197,12 +197,38 @@ extern "C" {
 ///@}
 
 /**
+ * @brief Holds references to the global game variables we need.
+ */
+///@{
+static PlayerCharacter **playerObject;
+static SettingCollectionMap **gameSettings;
+///@}
+
+/**
  * @brief Holds the function pointers which we use to call the game functions.
  */
 ///@{
 static float (*GetBaseActorValue_Entry)(void *, UInt32);
 static UInt16 (*GetLevel_Entry)(void*);
 ///@}
+
+/**
+ * @brief The signature used to find the player object.
+ */
+static const CodeSignature kThePlayer_ObjectSig(
+    /* name */   "g_thePlayer",
+    /* id */     403521,
+    /* result */ reinterpret_cast<void**>(&playerObject)
+);
+
+/**
+ * @brief The signature used to find the game settings object.
+ */
+static const CodeSignature kGameSettingCollection_ObjectSig(
+    /* name */   "g_gameSettingCollection",
+    /* id */     400782,
+    /* result */ reinterpret_cast<void**>(&gameSettings)
+);
 
 /**
  * @brief The signature used to find the games "GetLevel" function.
@@ -215,24 +241,6 @@ static const CodeSignature kGetLevel_FunctionSig(
 
 /**
  * @brief The code signature used to find the games GetBaseActorValue() fn.
- *
- * The assembly for the signature is as follows:
- * 48 89 5c        MOV        qword ptr [RSP + local_res18],RBX
- * 24 18
- * 48 89 74        MOV        qword ptr [RSP + local_res20],RSI
- * 24 20
- * 57              PUSH       RDI
- * 48 83 ec 30     SUB        RSP,0x30
- * 48 63 fa        MOVSXD     RDI,EDX
- * 48 8d b1        LEA        RSI,[RCX + 0x150]
- * 50 01 00 00
- * 48 8b d9        MOV        RBX,RCX
- * 4c 8d 44        LEA        R8=>local_res8,[RSP + 0x40]
- * 24 40
- * 0f 57 c0        XORPS      XMM0,XMM0
- * 8b d7           MOV        EDX,EDI
- * 48 8b ce        MOV        RCX,RSI
- * ...
  */
 static const CodeSignature kGetBaseActorValue_FunctionSig(
     /* name */   "GetBaseActorValue",
@@ -298,20 +306,7 @@ static const CodeSignature kModifyPerkPool_PatchSig(
  * eXPerience mod (17751). This is handled by the RelocPatch interface.
  *
  * This signature hooks into the following function:
- * void FUN_14070ec10(
- *     undefined8 param_1,
- *     undefined8 param_2,
- *     float param_3,
- *     float **param_4,
- *     int param_5_00,
- *     undefined8 param_6_00,
- *     undefined8 param_7_00,
- *     undefined4 param_5,
- *     char param_6,
- *     char param_7
- * ) {
- * 48 81 c1        ADD        param_1,0xb0
- * b0 00 00 00
+ * ...
  * 48 8b 01        MOV        RAX,qword ptr [param_1]
  * ff 50 18        CALL       qword ptr [RAX + 0x18]
  * 44 0f 28 c0     MOVAPS     XMM8,XMM0
@@ -323,13 +318,7 @@ static const CodeSignature kModifyPerkPool_PatchSig(
  * 41 0f 2f c2     COMISS     XMM0,XMM10
  * 0f 83 d8        JNC        LAB_14070ef71
  * 02 00 00
- * f3 0f 10        MOVSS      XMM7,dword ptr [DAT_14161d3b8]  = 3F800000h 1.0
- * 3d 17 e7
- * f0 00
- * c7 44 24        MOV        dword ptr [RSP + local_178],0x3f800000
- * 30 00 00
- * 80 3f
- * }
+ * ...
  *
  * Note that the code being patched expects the current skill level in XMM0 and
  * the maximum skill level in XMM10.
@@ -502,11 +491,7 @@ static const CodeSignature kImprovePlayerSkillPoints_PatchSig(
 /**
  * @brief TODO
  *
- * FIXME: It would probably be more stable to give this its own signature.
  * FIXME: Should verify that this signature is correct against the one in the OG version.
- *
- * const unsigned char expectedCode[] = {0xf3, 0x0f, 0x58, 0x08, 0xf3, 0x0f, 0x11, 0x08};
- * ASSERT(memcmp((void*)(kHook_ImproveLevelExpBySkillLevel.GetUIntPtr()), expectedCode, sizeof(expectedCode)) == 0);
  */
 static const CodeSignature kImproveLevelExpBySkillLevel_PatchSig(
     /* name */       "ImproveLevelExpBySkillLevel",
@@ -689,34 +674,6 @@ FUN_1403d8870
  * This patch redirects to our hook, with an assembly wrapper allowing the
  * hook to call the original implementation. The assembly wrapper reimplements
  * the first 6 bytes, then jumps to the instruction after the hook.
- *
- * The assembly signature for the function is as follows:
- * 4C 8B DC             mov         r11,rsp
- * 55                   push        rbp
- * 56                   push        rsi
- * 57                   push        rdi
- * 41 56                push        r14
- * 41 57                push        r15
- * 48 83 EC 50          sub         rsp,50h
- * 49 C7 43 A8 FE FF FF mov         qword ptr [r11-58h],0FFFFFFFFFFFFFFFEh
- * FF
- * 49 89 5B 08          mov         qword ptr [r11+8],rbx
- * 0F 29 74 24 40       movaps      xmmword ptr [rsp+40h],xmm6
- * 0F 29 7C 24 30       movaps      xmmword ptr [rsp+30h],xmm7
- * 48 63 F2             movsxd      rsi,edx
- * 48 8B F9             mov         rdi,rcx
- * 48 8B 05 B7 FC 8F 01 mov         rax,qword ptr [7FF64BF28128h]
- * 4C 8B 44 F0 08       mov         r8,qword ptr [rax+rsi*8+8]
- * 41 8B 40 60          mov         eax,dword ptr [r8+60h]
- * C1 E8 12             shr         eax,12h
- * A8 01                test        al,1
- * 74 3F                je          00007FF64A6284C0
- * 48 8B 49 40          mov         rcx,qword ptr [rcx+40h]
- * 48 85 C9             test        rcx,rcx
- * 74 36                je          00007FF64A6284C0
- * 48 83 79 50 00       cmp         qword ptr [rcx+50h],0
- * 74 2F                je          00007FF64A6284C0
- * 40 B5 01             mov         bpl,1
  */
 static const CodeSignature kGetEffectiveSkillLevel_PatchSig(
     /* name */       "GetEffectiveSkillLevel",
@@ -737,32 +694,9 @@ static const CodeSignature kGetEffectiveSkillLevel_PatchSig(
  * So as to not confuse players, this hook is used to force the skills menu to
  * show the actual skill level, not the damaged value.
  *
- * The assembly is as follows:
- * FF 50 08             call        qword ptr [rax+8]
- * F3 0F 2C C8          cvttss2si   ecx,xmm0
- * 81 F9 00 00 00 80    cmp         ecx,80000000h
- * 74 1E                je          00007FF6BD9C3BED
- * 66 0F 6E C9          movd        xmm1,ecx
- * 0F 5B C9             cvtdq2ps    xmm1,xmm1
- * 0F 2E C8             ucomiss     xmm1,xmm0
- * 74 12                je          00007FF6BD9C3BED
- * 0F 14 C0             unpcklps    xmm0,xmm0
- * 0F 50 C0             movmskps    eax,xmm0
- * 83 E0 01             and         eax,1
- * 2B C8                sub         ecx,eax
- * 66 0F 6E C1          movd        xmm0,ecx
- * 0F 5B C0             cvtdq2ps    xmm0,xmm0
- * 4D 8B CE             mov         r9,r14
- * 4C 89 74 24 40       mov         qword ptr [rsp+40h],r14
- * BA 03 00 00 00       mov         edx,3
- * 89 54 24 48          mov         dword ptr [rsp+48h],edx
- * F3 0F 5A C0          cvtss2sd    xmm0,xmm0
- * F2 0F 11 44 24 50    movsd       mmword ptr [rsp+50h],xmm0
- * 48 8D 0C 76          lea         rcx,[rsi+rsi*2]
- * 48 8D 9D 90 00 00 00 lea         rbx,[rbp+90h]
- * 48 8D 1C CB          lea         rbx,[rbx+rcx*8]
- * 48 8D 44 24 40       lea         rax,[rsp+40h]
- * 48 3B D8             cmp         rbx,rax
+ * This hook replaces the call instruction which would call
+ * GetEffectiveSkillLevel() with a call to our reimplemented
+ * GetEffectiveSkillLevel_Original().
  */
 static const CodeSignature kDisplayTrueSkillLevel_PatchSig(
     /* name */       "DisplayTrueSkillLevel",
@@ -782,6 +716,8 @@ static const uint8_t kNop = 0x90;
  *        by ApplyGamePatches().
  */
 static const CodeSignature *const kGameSignatures[] = {
+    &kThePlayer_ObjectSig,
+    &kGameSettingCollection_ObjectSig,
     &kGetLevel_FunctionSig,
     &kGetBaseActorValue_FunctionSig,
     &kModifyPerkPool_PatchSig,
@@ -794,6 +730,24 @@ static const CodeSignature *const kGameSignatures[] = {
     &kGetEffectiveSkillLevel_PatchSig,
     &kDisplayTrueSkillLevel_PatchSig
 };
+
+/**
+ * @brief Gets a pointer to the player object.
+ */
+PlayerCharacter *
+GetPlayer() {
+    ASSERT(playerObject);
+    return *playerObject;
+}
+
+/**
+ * @brief Gets a pointer to the game settings object.
+ */
+SettingCollectionMap *
+GetGameSettings() {
+    ASSERT(gameSettings);
+    return *gameSettings;
+}
 
 /**
  * @brief Gets the base value of the attribute for the given actor.

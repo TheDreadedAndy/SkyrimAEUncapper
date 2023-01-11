@@ -26,6 +26,7 @@
     <ClCompile Include="Settings.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="addr_lib\versionlibdb.h" />
     <ClInclude Include="Compare.h" />
     <ClInclude Include="HookWrappers.h" />
     <ClInclude Include="Hook_Skill.h" />

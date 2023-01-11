@@ -53,6 +53,9 @@
     <ClInclude Include="Compare.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="addr_lib\versionlibdb.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="HookWrappers.S">

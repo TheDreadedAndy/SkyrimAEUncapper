@@ -8,6 +8,11 @@
 #ifndef __SKYRIM_UNCAPPER_AE_RELOC_FN_H__
 #define __SKYRIM_UNCAPPER_AE_RELOC_FN_H__
 
+#include "GameSettings.h"
+#include "GameAPI.h"
+
+PlayerCharacter *GetPlayer(void);
+SettingCollectionMap *GetGameSettings(void);
 float GetBaseActorValue(void *actor, UInt32 skill_id);
 UInt16 GetLevel(void *actor);
 
