@@ -15,11 +15,14 @@
 EXTERN GetSkillCap_Hook:PROC
 EXTERN ModifyPerkPool_Hook:PROC
 EXTERN ImproveLevelExpBySkillLevel_Hook:PROC
+EXTERN LegendaryResetSkillLevel_Hook:PROC
+EXTERN CheckConditionForLegendarySkill_Hook:PROC
 EXTERN HideLegendaryButton_Hook:PROC
 EXTERN ImprovePlayerSkillPoints_ReturnTrampoline:PTR
 EXTERN ImproveAttributeWhenLevelUp_ReturnTrampoline:PTR
 EXTERN GetEffectiveSkillLevel_ReturnTrampoline:PTR
 EXTERN DisplayTrueSkillLevel_ReturnTrampoline:PTR
+EXTERN CheckConditionForLegendarySkill_ReturnTrampoline:PTR
 EXTERN HideLegendaryButton_ReturnTrampoline:PTR
 
 ; Saves all caller saved registers, except rax.
@@ -151,6 +154,28 @@ DisplayTrueSkillLevel_Hook PROC PUBLIC
     cvttss2si ecx, xmm0
     jmp DisplayTrueSkillLevel_ReturnTrampoline
 DisplayTrueSkillLevel_Hook ENDP
+
+; Modifies the rest level of legendarying a skill depending on the user
+; settings and the base level in xmm0.
+LegendaryResetSkillLevel_Wrapper PROC PUBLIC
+    SAVEALL
+    mov ecx, [rsi + 1ch] ; Move skill id to first argument.
+                         ; Base level is already in xmm0.
+    call LegendaryResetSkillLevel_Hook
+    RESTOREALL
+    ret
+LegendaryResetSkillLevel_Wrapper ENDP
+
+; Overwrites the call to the original legendary skill condition check
+; with a call to our own condition check.
+; Since we are overwriting another fn call, we dont need to reg save.
+CheckConditionForLegendarySkill_Wrapper PROC PUBLIC
+    mov edx, eax
+    lea rcx, [rdi + 0b8h]
+    call CheckConditionForLegendarySkill_Hook
+    cmp al, 1
+    jmp CheckConditionForLegendarySkill_ReturnTrampoline
+CheckConditionForLegendarySkill_Wrapper ENDP
 
 ; Allows the legendary button to be hidden based on an INI setting.
 ; We are overwriting another function call here, so we dont need to save

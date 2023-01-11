@@ -189,6 +189,7 @@ extern "C" {
     uintptr_t ImproveAttributeWhenLevelUp_ReturnTrampoline;
     uintptr_t GetEffectiveSkillLevel_ReturnTrampoline;
     uintptr_t DisplayTrueSkillLevel_ReturnTrampoline;
+    uintptr_t CheckConditionForLegendarySkill_ReturnTrampoline;
     uintptr_t HideLegendaryButton_ReturnTrampoline;
 }
 ///@}
@@ -340,15 +341,39 @@ static const CodeSignature kSkillCapPatch_PatchSig(
     /* offset */     0x76
 );
 
-#if 0
-    kHook_ExecuteLegendarySkill_Ent            = RVAScan<uintptr_t *>(GET_RVA(kHook_ExecuteLegendarySkill_Ent), "0F 82 85 00 00 00 48 8B 0D ? ? ? ? 48 81 C1 B0 00 00 00 48 8B 01 F3 0F 10 15 ? ? ? ? 8B 56 1C FF 50 20 48 8B 05 ? ? ? ? 8B 56 1C 48 8B 88 B0 09 00 00");
-    kHook_ExecuteLegendarySkill_Ret            = kHook_ExecuteLegendarySkill_Ent;
-    kHook_ExecuteLegendarySkill_Ret            += 6;
+/**
+ * @brief Alters the reset level of legendarying a skill.
+ *
+ * Unfortunately, Kasplat has no idea why altering this particular jump makes
+ * the change we want.
+ */
+static const CodeSignature kLegendaryResetSkillLevel_PatchSig(
+    /* name */       "LegendaryResetSkillLevel",
+    /* hook_type */  HookType::Call6,
+    /* hook */       reinterpret_cast<uintptr_t>(LegendaryResetSkillLevel_Wrapper),
+    /* id */         0,
+    /* patch_size */ 6,
+    /* trampoline */ nullptr,
+    /* offset */     0x1d7,
+    /* known */      0x90c430
+);
 
-    kHook_CheckConditionForLegendarySkill_Ent = RVAScan<uintptr_t *>(GET_RVA(kHook_CheckConditionForLegendarySkill_Ent), "8B D0 48 8D 8F B0 00 00 00 FF 53 18 0F 2F 05 ? ? ? ? 0F 82 10 0A 00 00 45 33 FF 4C 89 7D 80 44 89 7D 88 45 33 C0 48 8B 15 ? ? ? ? 48 8D 4D 80");
-    kHook_CheckConditionForLegendarySkill_Ret = kHook_CheckConditionForLegendarySkill_Ent;
-    kHook_CheckConditionForLegendarySkill_Ret += 0x13;
-#endif
+/**
+ * @brief Replaces the call to the legendary condition function with our own.
+ *
+ * This patch simply overwrites the call to the original legendary condition
+ * check function with a call to our own reimplemented condition check function.
+ */
+static const CodeSignature kCheckConditionForLegendarySkill_PatchSig(
+    /* name */       "CheckConditionForLegendarySkill",
+    /* hook_type */  HookType::Jump6,
+    /* hook */       reinterpret_cast<uintptr_t>(CheckConditionForLegendarySkill_Wrapper),
+    /* id */         0,
+    /* patch_size */ 0x13,
+    /* trampoline */ &CheckConditionForLegendarySkill_ReturnTrampoline,
+    /* offset */     0x14e,
+    /* known */      0x902890
+);
 
 /**
  * @brief Hooks into the legendary button display code to allow it to be hidden.
@@ -379,55 +404,6 @@ static const CodeSignature kHideLegendaryButton_PatchSig(
 
     g_branchTrampoline.Write6Branch(CalculateChargePointsPerUse_Original.GetUIntPtr(), (uintptr_t)CalculateChargePointsPerUse_Hook);
 
-    {
-        struct ExecuteLegendarySkill_Code : Xbyak::CodeGenerator
-        {
-            ExecuteLegendarySkill_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
-            {
-                Xbyak::Label retnLabel;
-
-                mov(edx, ptr[rsi + 0x1C]);
-                call((void*)&LegendaryResetSkillLevel_Hook);
-
-                jmp(ptr[rip + retnLabel]);
-
-            L(retnLabel);
-                dq(kHook_ExecuteLegendarySkill_Ret.GetUIntPtr());
-            }
-        };
-
-        void * codeBuf = g_localTrampoline.StartAlloc();
-        ExecuteLegendarySkill_Code code(codeBuf);
-        g_localTrampoline.EndAlloc(code.getCurr());
-
-        g_branchTrampoline.Write6Branch(kHook_ExecuteLegendarySkill_Ent.GetUIntPtr(), uintptr_t(code.getCode()));
-    }
-
-    {
-        struct CheckConditionForLegendarySkill_Code : Xbyak::CodeGenerator
-        {
-            CheckConditionForLegendarySkill_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
-            {
-                Xbyak::Label retnLabel;
-
-                mov(edx, eax);
-                lea(rcx, ptr[rdi + 0xB0]);
-                call((void*)&CheckConditionForLegendarySkill_Hook);
-                cmp(al, 1);
-
-                jmp(ptr[rip + retnLabel]);
-
-            L(retnLabel);
-                dq(kHook_CheckConditionForLegendarySkill_Ret.GetUIntPtr());
-            }
-        };
-
-        void * codeBuf = g_localTrampoline.StartAlloc();
-        CheckConditionForLegendarySkill_Code code(codeBuf);
-        g_localTrampoline.EndAlloc(code.getCurr());
-
-        g_branchTrampoline.Write6Branch(kHook_CheckConditionForLegendarySkill_Ent.GetUIntPtr(), uintptr_t(code.getCode()));
-    }
 #endif
 
 /**
@@ -679,6 +655,8 @@ static const CodeSignature *const kGameSignatures[] = {
     &kGetSkillCoefficients_FunctionSig,
     &kModifyPerkPool_PatchSig,
     &kSkillCapPatch_PatchSig,
+    &kLegendaryResetSkillLevel_PatchSig,
+    &kCheckConditionForLegendarySkill_PatchSig,
     &kHideLegendaryButton_PatchSig,
     &kImproveSkillLevel_PatchSig,
     &kImprovePlayerSkillPoints_PatchSig,

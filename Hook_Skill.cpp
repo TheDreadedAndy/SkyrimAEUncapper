@@ -95,6 +95,8 @@ CalculateChargePointsPerUse_Hook(
 }
 
 #if 0
+// FIXME: If training calls GetEffectiveSkillLevel(), it will need to be
+// altered to call the original function.
 void ImproveSkillByTraining_Hook(void* pPlayer, UInt32 skillID, UInt32 count)
 {
     PlayerSkills* skillData = *reinterpret_cast<PlayerSkills**>(reinterpret_cast<uintptr_t>(pPlayer)+0x9B0);
@@ -258,7 +260,7 @@ GetEffectiveSkillLevel_Hook(
 /**
  * @brief Determines what level a skill should take on after being legendaried.
  */
-void 
+extern "C" void
 LegendaryResetSkillLevel_Hook(
     float base_level,
     UInt32 skill_id
