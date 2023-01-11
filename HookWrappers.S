@@ -159,8 +159,6 @@ DisplayTrueSkillLevel_Hook ENDP
 ; settings and the base level in xmm0.
 LegendaryResetSkillLevel_Wrapper PROC PUBLIC
     SAVEALL
-    mov ecx, [rsi + 1ch] ; Move skill id to first argument.
-                         ; Base level is already in xmm0.
     call LegendaryResetSkillLevel_Hook
     RESTOREALL
     ret

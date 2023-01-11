@@ -262,11 +262,8 @@ GetEffectiveSkillLevel_Hook(
  */
 extern "C" void
 LegendaryResetSkillLevel_Hook(
-    float base_level,
-    UInt32 skill_id
+    float base_level
 ) {
-    ASSERT(settings.IsManagedSkill(skill_id));
-
     Setting* reset_val = (GetGameSettings())->Get("fLegendarySkillResetValue");
     ASSERT(reset_val);
     reset_val->data.f32 = settings.GetPostLegendarySkillLevel(
