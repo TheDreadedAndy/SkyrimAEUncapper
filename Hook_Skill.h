@@ -9,6 +9,7 @@
 
 #include "GameFormComponents.h"
 
+void ImproveSkillByTraining_Hook(PlayerSkills *skill_data, UInt32 skill_id, UInt32 count);
 void ImprovePlayerSkillPoints_Hook(
     PlayerSkills *skill_data,
     UInt32 skill_id,

@@ -75,8 +75,10 @@ ENDM
 ; injection macros to protect the register state.
 SkillCapPatch_Wrapper PROC PUBLIC
     BEGIN_INJECTED_CALL
-    mov ecx, esi    ; pass SkillID in ecx to hook.
+    mov ecx, esi ; pass SkillID in ecx to hook.
+    sub rsp, 20h ; Required by calling convention to alloc this.
     call GetSkillCap_Hook
+    add rsp, 20h
     movss xmm10, xmm0 ; Replace maximum with fn result.
     END_INJECTED_CALL
     ret
@@ -86,8 +88,9 @@ SkillCapPatch_Wrapper ENDP
 ; register saving.
 ModifyPerkPool_Wrapper PROC PUBLIC
     mov rcx, rdi ; AE changed rbx to rdi.
+    sub rsp, 20h
     call ModifyPerkPool_Hook
-    add rsp, 20h ; We reimplement the original return code as well here.
+    add rsp, 40h ; We reimplement the original return code as well here.
     pop rdi
     ret
 ModifyPerkPool_Wrapper ENDP
@@ -103,7 +106,9 @@ ImproveLevelExpBySkillLevel_Wrapper PROC PUBLIC
 
     movss xmm0, xmm1 ; xmm1 contains level exp
     mov rdx, rsi ; rsi contains skill_id.
+    sub rsp, 20h
     call ImproveLevelExpBySkillLevel_Hook
+    add rsp, 20h
     movss xmm6, xmm0 ; Save result in xmm6.
 
     RESTOREALL ; Restore all caller saved regs.
@@ -159,7 +164,9 @@ DisplayTrueSkillLevel_Hook ENDP
 ; settings and the base level in xmm0.
 LegendaryResetSkillLevel_Wrapper PROC PUBLIC
     SAVEALL
+    sub rsp, 20h
     call LegendaryResetSkillLevel_Hook
+    add rsp, 20h
     RESTOREALL
     ret
 LegendaryResetSkillLevel_Wrapper ENDP

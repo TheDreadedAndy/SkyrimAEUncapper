@@ -387,39 +387,15 @@ static const CodeSignature kHideLegendaryButton_PatchSig(
 );
 
 /**
- * @brief TODO
- *
- * FIXME:
-Calls ImprovePlayerSkillPoints offset:0x14070ee08-0x1406ca9b0=0x44458
-       1406ca9b0 48 8b 89        MOV        param_1,qword ptr [param_1 + 0x9b0]
-                 b0 09 00 00
-       1406ca9b7 b8 01 00        MOV        EAX,0x1
-                 00 00
-       1406ca9bc 44 3b c0        CMP        param_3,EAX
-       1406ca9bf 44 0f 42 c0     CMOVC      param_3,EAX
-       1406ca9c3 e9 a8 43        JMP        LAB_14070ed70
-                 04 00
-...
-       14070ee08 e8 73 fb        CALL       ImprovePlayerSkillPoints
-                 ff ff
-       14070ee0d ff c6           INC        ESI
-       14070ee0f 41 3b f6        CMP        ESI,R14D
-       14070ee12 72 cc           JC         LAB_14070ede0
-       14070ee14 f3 0f 10        MOVSS      XMM0,dword ptr [RDI + RBX*0x4 + 0x10]
-                 44 9f 10
-       14070ee1a f3 0f 10        MOVSS      XMM1,dword ptr [RDI + RBX*0x4 + 0xc]
-                 4c 9f 0c
-       14070ee20 4c 8b 64        MOV        R12,qword ptr [RSP + local_20]
-                 24 58
-*/
-static const CodeSignature kImproveSkillLevel_PatchSig(
-    /* name */       "ImproveSkillLevel",
-    /* hook_type */  HookType::Call5,
-    /* hook */       reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Original),
+ * @brief Overwrites the original ImproveSkillByTraining() function to uncap it
+ *        and ensure it improves skills without multipliers.
+ */
+static const CodeSignature kImproveSkillByTraining_PatchSig(
+    /* name */       "ImproveSkillByTraining",
+    /* hook_type */  HookType::Jump6,
+    /* hook */       reinterpret_cast<uintptr_t>(ImproveSkillByTraining_Hook),
     /* id */         41562,
-    /* patch_size */ 5,
-    /* trampoline */ nullptr,
-    /* offset */     0x98
+    /* patch_size */ 6
 );
 
 /**
@@ -627,7 +603,7 @@ static const CodeSignature *const kGameSignatures[] = {
     &kLegendaryResetSkillLevel_PatchSig,
     &kCheckConditionForLegendarySkill_PatchSig,
     &kHideLegendaryButton_PatchSig,
-    &kImproveSkillLevel_PatchSig,
+    &kImproveSkillByTraining_PatchSig,
     &kImprovePlayerSkillPoints_PatchSig,
     &kImproveLevelExpBySkillLevel_PatchSig,
     &kImproveAttributeWhenLevelUp_PatchSig,
