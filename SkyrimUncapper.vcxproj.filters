@@ -24,9 +24,6 @@
     <ClCompile Include="Settings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="reg2k\Pattern.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="SafeMemSet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -35,12 +32,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="reg2k\Pattern.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="reg2k\RVA.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Hook_Skill.h">
       <Filter>Header Files</Filter>
     </ClInclude>

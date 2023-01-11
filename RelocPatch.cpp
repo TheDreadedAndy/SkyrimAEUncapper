@@ -82,7 +82,7 @@ struct CodeSignature {
     const char* name;
     HookType::t hook_type;
     uintptr_t hook;
-    const char* sig;
+    unsigned long long id;
     size_t patch_size;
     ptrdiff_t offset;
     uintptr_t *return_trampoline;
@@ -90,7 +90,7 @@ struct CodeSignature {
 
     // Optional argument for finding new addresses.
 #ifdef _DEBUG
-    uintptr_t real_address;
+    uintptr_t known_offset;
 #endif
 
     /**
@@ -117,7 +117,7 @@ struct CodeSignature {
         uintptr_t *return_trampoline = nullptr,
         ptrdiff_t offset = 0
 #ifdef _DEBUG
-        , uintptr_t real_address = 0
+        , uintptr_t known_offset = 0
 #endif
     ) : name(name),
         hook_type(hook_type),
@@ -127,7 +127,7 @@ struct CodeSignature {
         offset(offset),
         return_trampoline(return_trampoline),
 #ifdef _DEBUG
-        real_address(real_address),
+        known_offset(known_offset),
 #endif
         result(nullptr)
     {}
@@ -158,7 +158,7 @@ struct CodeSignature {
         offset(0),
         return_trampoline(nullptr),
 #ifdef _DEBUG
-        real_address(real_address),
+        known_offset(known_offset),
 #endif
         result(result)
     {}
@@ -210,7 +210,7 @@ static UInt16 (*GetLevel_Entry)(void*);
 static const CodeSignature kGetLevel_FunctionSig(
     /* name */   "GetLevel",
     /* id */     37334,
-    /* result */ reinterpret_cast<void**>(&GetLevel_Entry),
+    /* result */ reinterpret_cast<void**>(&GetLevel_Entry)
 );
 
 /**
@@ -374,8 +374,9 @@ static const CodeSignature kHideLegendaryButton_PatchSig(
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(HideLegendaryButton_Wrapper),
     /* id */         52527,
-    /* patch_size */ 0x153,
-    /* trampoline */ &HideLegendaryButton_ReturnTrampoline
+    /* patch_size */ 0x1e,
+    /* trampoline */ &HideLegendaryButton_ReturnTrampoline,
+    /* offset */     0x153
 );
 
 #if 0 // not updated code
@@ -821,8 +822,8 @@ ApplyGamePatches() {
         unsigned long long id = sig->id;
 
 #ifdef _DEBUG
-        if (sig->real_address) {
-            ASSERT(db.FindIdByAddress(reinterpret_cast<void*>(real_address), id));
+        if (sig->known_offset) {
+            ASSERT(db.FindIdByOffset(sig->known_offset, id));
         }
 #endif
 
@@ -831,11 +832,11 @@ ApplyGamePatches() {
         uintptr_t real_address = reinterpret_cast<uintptr_t>(addr) + sig->offset;
 
         _MESSAGE(
-            "Signature %s ([ID: %zu] + %zx) is at address %zu",
+            "Signature %s ([ID: %zu] + 0x%zx) is at offset 0x%zx",
             sig->name,
             id,
             sig->offset,
-            real_address
+            real_address - RelocationManager::s_baseAddr
         );
 
         size_t hook_size = HookType::Size(sig->hook_type);
