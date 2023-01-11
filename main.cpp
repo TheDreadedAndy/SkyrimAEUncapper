@@ -60,6 +60,7 @@ static bool SkyrimUncapper_Initialize(const SKSEInterface* skse)
 
     // We only have a few hooks, so a small trampoline buffer is fine.
     // This will need to be increased if many more hooks are added (> ~30).
+    // FIXME: Adjust once done adding signatures.
     if (!g_branchTrampoline.Create(256, imgBase)) {
         _ERROR("couldn't create branch trampoline. this is fatal. skipping remainder of init process.");
         return false;
@@ -88,6 +89,7 @@ extern "C" {
         "Andrew Spaulding (Kasplat)", // name
         "", // support@example.com
         0, // kVersionIndependentEx_NoStructUse
+        // FIXME: Should mark as using addr lib now.
         SKSEPluginVersionData::kVersionIndependent_Signatures | SKSEPluginVersionData::kVersionIndependent_StructsPost629,
         {0}, // works with any version of the script extender. you probably do not need to put anything here
         0 // minimum version of the script extender required, compared against PACKED_SKSE_VERSION

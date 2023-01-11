@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "common/IErrors.h"
-#include "SimpleIni.h"
+#include "simpleini/SimpleIni.h"
 
 #define CONFIG_VERSION 5
 
