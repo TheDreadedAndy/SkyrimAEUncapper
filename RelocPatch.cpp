@@ -591,6 +591,22 @@ static const CodeSignature kImproveAttributeWhenLevelUp_PatchSig(
     /* trampoline */ &ImproveAttributeWhenLevelUp_ReturnTrampoline
 );
 
+/**
+ * @brief Allows health and magicka level ups to improve carry weight.
+ * 
+ * This patch simply overwrites the branch instruction which would skip carry
+ * weight improvement for health/magicka with NOPs.
+ */
+static const CodeSignature kAllowAllAttrImproveCarryWeight_PatchSig(
+    /* name */       "AllowAllAttrImproveCarryWeight",
+    /* hook_type */  HookType::Nop,
+    /* hook */       0,
+    /* id */         51917,
+    /* patch_size */ 2,
+    /* trampoline */ nullptr,
+    /* offset */     0x9a
+);
+
 #if 0
     GetSkillCoefficients                    = RVAScan<_GetSkillCoefficients>(GET_RVA(GetSkillCoefficients), "81 F9 A3 00 00 00 77 52 48 8B 05 ? ? ? ? 48 63 C9 4C 8B 54 C8 08 4D 85 D2 74 3E 49 8B 82 08 01 00 00 48 85 C0 74 32");
 #endif
@@ -887,17 +903,6 @@ ApplyGamePatches() {
         // every hook to ensure the best compatibility with other SKSE
         // plugins.
         SafeMemSet(return_address, kNop, sig->patch_size - hook_size);
-
-        // FIXME: Gross hack until this gets its own signature.
-        if (sig == &kImproveAttributeWhenLevelUp_PatchSig) {
-/*
-       1408c4793 ff 50 28        CALL       qword ptr [RAX + 0x28]
-       1408c4796 83 7f 18 1a     CMP        dword ptr [RDI + 0x18],0x1a
-       1408c479a 75 22           JNZ        LAB_1408c47be
-22 replaced with 0. To disable jump over increasing carry weight if not stamina(0x1a) selected?
-*/
-            SafeWrite8(real_address + 0x9B, 0);
-        }
     }
 
     _MESSAGE("Finished applying game patches!");
