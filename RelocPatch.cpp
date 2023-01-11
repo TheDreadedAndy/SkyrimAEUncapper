@@ -597,50 +597,6 @@ static const CodeSignature kAllowAllAttrImproveCarryWeight_PatchSig(
     /* offset */     0x9a
 );
 
-#if 0
-    ImproveLevelExpBySkillLevel_Original    = RVAScan<_ImproveLevelExpBySkillLevel>(GET_RVA(ImproveLevelExpBySkillLevel_Original), "F3 0F 58 D3 0F 28 E0 0F 29 34 24 0F 57 F6 0F 28 CA F3 0F 58 CB F3 0F 59 CA F3 0F 59 CD F3 0F 2C C1 66 0F 6E C0 0F 5B C0 F3 0F 5C C8 0F 2F CE 73 04 F3 0F 5C C3", -0x17);
-/*
-    Before AE FUN_1406e7430
-              pfVar1[uVar5 * 3 + 4] = fVar9;
-              fVar8 = (float)FUN_1406e7430(fVar8); // Skill exp to PC level exp
-              *pfVar7 = fVar8 + *pfVar7; // PC level exp increase
-              fVar8 = fVar10;
-              FUN_140694650(DAT_142f26ef8);
-            } while (fVar8 < fVar11);
-    After AE function inlined
-              pfVar1[uVar5 * 3 + 4] = fVar9;
-              fVar9 = (fVar8 + fVar12) * fVar8 * fVar15;
-              fVar11 = (float)(int)fVar9;
-              if (fVar9 - fVar11 < fVar13) {
-                fVar11 = fVar11 - fVar12;
-              }
-              fVar10 = fVar8 * fVar10 * fVar15;
-              fVar9 = (float)(int)fVar10;
-              if (fVar10 - fVar9 < fVar13) {
-                fVar9 = fVar9 - fVar12;
-              }
-              **param_4 = (fVar11 - fVar9) * _DAT_141e76790 + **param_4;
-              FUN_1406bc2e0(DAT_142fc19c8);
-            } while (fVar8 < fVar14);
-
-                             LAB_14070ee83                                   XREF[1]:     14070ee7d(j)
-       14070ee83 f3 0f 11        MOVSS      dword ptr [RBX + RDI*0x4 + 0x10],XMM0
-                 44 bb 10
-       14070ee89 0f 28 c6        MOVAPS     XMM0,XMM6
-       14070ee8c f3 0f 58 c7     ADDSS      XMM0,XMM7
-       14070ee90 f3 0f 59 c6     MULSS      XMM0,XMM6
-       14070ee94 f3 41 0f        MULSS      XMM0,XMM11
-                 59 c3
-       14070ee99 f3 0f 2c c0     CVTTSS2SI  EAX,XMM0
-       14070ee9d 66 0f 6e c8     MOVD       XMM1,EAX
-       14070eea1 0f 5b c9        CVTDQ2PS   XMM1,XMM1
-       14070eea4 f3 0f 5c c1     SUBSS      XMM0,XMM1
-       14070eea8 41 0f 2f c1     COMISS     XMM0,XMM9
-       14070eeac 73 04           JNC        LAB_14070eeb2
-       14070eeae f3 0f 5c cf     SUBSS      XMM1,XMM7
-*/
-#endif
-
 // FIXME: Not sure why this was disabled. Broken? See nexus notes.
 #if 0
     //CalculateChargePointsPerUse_Original    = RVAScan<_CalculateChargePointsPerUse>(GET_RVA(CalculateChargePointsPerUse_Original), "48 83 EC 48 0F 29 74 24 30 0F 29 7C 24 20 0F 28 F8 F3 0F 10 05 ? ? ? ? F3 0F 59 C1 F3 0F 10 0D ? ? ? ? E8 ? ? ? ? F3 0F 10 35 ? ? ? ? F3 0F 10 0D ? ? ? ?");
