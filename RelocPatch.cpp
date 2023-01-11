@@ -78,6 +78,7 @@ struct HookType {
 };
 
 /// @brief Describes a patch to be applied by a RelocPatch<T>.
+// FIXME: Bad constructor comments.
 struct CodeSignature {
     const char* name;
     HookType::t hook_type;
@@ -163,12 +164,6 @@ struct CodeSignature {
         result(result)
     {}
 };
-
-// FIXME
-#if 0
-typedef float(*_CalculateChargePointsPerUse)(float basePoints, float enchantingLevel);
-static RelocAddr <_CalculateChargePointsPerUse> CalculateChargePointsPerUse_Original(0x03C0F10);
-#endif
 
 /**
  * @brief Used by the OG game functions we replace to return to their
@@ -559,38 +554,22 @@ static const CodeSignature kAllowAllAttrImproveCarryWeight_PatchSig(
     /* offset */     0x9a
 );
 
-// FIXME: Not sure why this was disabled. Broken? See nexus notes.
-#if 0
-    //CalculateChargePointsPerUse_Original    = RVAScan<_CalculateChargePointsPerUse>(GET_RVA(CalculateChargePointsPerUse_Original), "48 83 EC 48 0F 29 74 24 30 0F 29 7C 24 20 0F 28 F8 F3 0F 10 05 ? ? ? ? F3 0F 59 C1 F3 0F 10 0D ? ? ? ? E8 ? ? ? ? F3 0F 10 35 ? ? ? ? F3 0F 10 0D ? ? ? ?");
-    CalculateChargePointsPerUse_Original    = RVAScan<_CalculateChargePointsPerUse>(GET_RVA(CalculateChargePointsPerUse_Original), "48 83 EC 48 0F 29 74 24 30 0F 29 7C 24 20 0F 28 F8 F3 0F 10 05");
-/*
-Before AE
-undefined8 FUN_1403c0e40(float param_1,float param_2)
-After AE
-FUN_1403d8870
-       1403d8870 48 83 ec 48     SUB        RSP,0x48
-       1403d8874 0f 29 74        MOVAPS     xmmword ptr [RSP + local_18[0]],XMM6
-                 24 30
-       1403d8879 0f 29 7c        MOVAPS     xmmword ptr [RSP + local_28[0]],XMM7
-                 24 20
-       1403d887e 0f 28 f8        MOVAPS     XMM7,XMM0
-       1403d8881 f3 0f 10        MOVSS      XMM0,dword ptr [DAT_141e78500]                   = 3BA3D70Ah
-                 05 77 fc
-                 a9 01
-       1403d8889 f3 0f 59 c1     MULSS      XMM0,XMM1
-       1403d888d f3 0f 10        MOVSS      XMM1,dword ptr [DAT_141e78530]                   = 3F000000h
-                 0d 9b fc
-                 a9 01
-       1403d8895 e8 0a ee        CALL       API-MS-WIN-CRT-MATH-L1-1-0.DLL::powf             float powf(float _X, float _Y)
-                 09 01
-*/
-#endif
-
-#if 0 // not updated code
-
-    g_branchTrampoline.Write6Branch(CalculateChargePointsPerUse_Original.GetUIntPtr(), (uintptr_t)CalculateChargePointsPerUse_Hook);
-
-#endif
+/**
+ * @brief Replaces the original charge point calculation function call with a
+ *        call to our modified function which caps the enchant level at 199.
+ *
+ * This is a bug fix for the original equation, which gives invalid results for
+ * enchantment levels at 200 or above.
+ */
+static const CodeSignature kCalculateChargePointsPerUse_PatchSig(
+    /* name */       "CalculateChargePointsPerUse",
+    /* hook_type */  HookType::Call5,
+    /* hook */       reinterpret_cast<uintptr_t>(CalculateChargePointsPerUse_Hook),
+    /* id */         51449,
+    /* patch_size */ 5,
+    /* trampoline */ nullptr,
+    /* offset */     0x333
+);
 
 /**
  * @brief Caps the effective skill level in calculations by always returning
@@ -652,6 +631,7 @@ static const CodeSignature *const kGameSignatures[] = {
     &kImprovePlayerSkillPoints_PatchSig,
     &kImproveLevelExpBySkillLevel_PatchSig,
     &kImproveAttributeWhenLevelUp_PatchSig,
+    &kCalculateChargePointsPerUse_PatchSig,
     &kGetEffectiveSkillLevel_PatchSig,
     &kDisplayTrueSkillLevel_PatchSig
 };

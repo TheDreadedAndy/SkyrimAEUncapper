@@ -19,6 +19,7 @@ void ImprovePlayerSkillPoints_Hook(
     bool unk4
 );
 UInt64 ImproveAttributeWhenLevelUp_Hook(void *unk0, UInt8 unk1);
+float CalculateChargePointsPerUse_Hook(float base_points, float enchant_level);
 float GetEffectiveSkillLevel_Hook(void *av, UInt32 skill_id);
 
 #endif /* __SKYRIM_UNCAPPER_AE_HOOK_SKILL_H__ */
