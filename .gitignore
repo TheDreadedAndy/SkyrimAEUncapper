@@ -1,4 +1,5 @@
 *.cpp.swp
 *.h.swp
 *.swp
+*.aps
 x64/

@@ -87,10 +87,9 @@ extern "C" {
         1, // version number of your plugin
         "SkyrimUncapperAE",
         "Andrew Spaulding (Kasplat)", // name
-        "", // support@example.com
-        0, // kVersionIndependentEx_NoStructUse
-        // FIXME: Should mark as using addr lib now.
-        SKSEPluginVersionData::kVersionIndependent_Signatures | SKSEPluginVersionData::kVersionIndependent_StructsPost629,
+        "andyespaulding@gmail.com", // support@example.com
+        0, // We use game structures, so we're incompatible with pre-629.
+        SKSEPluginVersionData::kVersionIndependent_AddressLibraryPostAE | SKSEPluginVersionData::kVersionIndependent_StructsPost629,
         {0}, // works with any version of the script extender. you probably do not need to put anything here
         0 // minimum version of the script extender required, compared against PACKED_SKSE_VERSION
     };
