@@ -6,16 +6,14 @@
  *
  * This file contains code signatures which are used by the plugin to find
  * the game code which must be patched. These signatures are parsed by the
- * ApplyGamePatches() function, which will first find each location to be
- * patched and then apply the patches.
- *
- * Locations are resolved before patching to ensure that overlapping patches
- * do not prevent each other from being found. Additionally, this is likely
- * better from a performance standpoint, as the games binary will still
- * be in the cache (at least partially).
+ * ApplyGamePatches() function, which will find each location to be
+ * patched and apply the patches.
  *
  * Note that many of these signatures and the associated assembly code were
- * found by the other authors which worked on this mod.
+ * found by the other authors which worked on this mod. I (Kasplat)
+ * converted each one to an address-independence ID. Additionally, a new
+ * signature for GetEffectiveSkillLevel() was found and DisplayTrueSkillLevel
+ * was added.
  */
 
 #include "RelocFn.h"
@@ -166,7 +164,6 @@ struct CodeSignature {
 
 // FIXME
 #if 0
-typedef bool(*_GetSkillCoefficients)(UInt32, float*, float*, float*, float*);
 typedef float(*_CalculateChargePointsPerUse)(float basePoints, float enchantingLevel);
 
 static RelocAddr <uintptr_t *> kHook_ExecuteLegendarySkill_Ent = 0x08C95FD;//get it when legendary skill by trace setbaseav.
@@ -174,8 +171,6 @@ static RelocAddr <uintptr_t *> kHook_ExecuteLegendarySkill_Ret = 0x08C95FD + 0x6
 
 static RelocAddr <uintptr_t *> kHook_CheckConditionForLegendarySkill_Ent = 0x08BF655;
 static RelocAddr <uintptr_t *> kHook_CheckConditionForLegendarySkill_Ret = 0x08BF655 + 0x13;
-
-static RelocAddr <_GetSkillCoefficients> GetSkillCoefficients(0x03E37F0);
 
 static RelocAddr <_CalculateChargePointsPerUse> CalculateChargePointsPerUse_Original(0x03C0F10);
 #endif
@@ -210,6 +205,7 @@ static SettingCollectionMap **gameSettings;
 ///@{
 static float (*GetBaseActorValue_Entry)(void *, UInt32);
 static UInt16 (*GetLevel_Entry)(void*);
+static bool (*GetSkillCoefficients_Entry)(UInt32, float*, float*, float*, float*);
 ///@}
 
 /**
@@ -246,6 +242,15 @@ static const CodeSignature kGetBaseActorValue_FunctionSig(
     /* name */   "GetBaseActorValue",
     /* id */     38464,
     /* result */ reinterpret_cast<void**>(&GetBaseActorValue_Entry)
+);
+
+/**
+ * @brief The code signature used to find the games GetSkillCoefficients() fn.
+ */
+static const CodeSignature kGetSkillCoefficients_FunctionSig(
+    /* name */   "GetSkillCoefficients",
+    /* id */     27244,
+    /* result */ reinterpret_cast<void**>(&GetSkillCoefficients_Entry)
 );
 
 /**
@@ -593,10 +598,6 @@ static const CodeSignature kAllowAllAttrImproveCarryWeight_PatchSig(
 );
 
 #if 0
-    GetSkillCoefficients                    = RVAScan<_GetSkillCoefficients>(GET_RVA(GetSkillCoefficients), "81 F9 A3 00 00 00 77 52 48 8B 05 ? ? ? ? 48 63 C9 4C 8B 54 C8 08 4D 85 D2 74 3E 49 8B 82 08 01 00 00 48 85 C0 74 32");
-#endif
-
-#if 0
     ImproveLevelExpBySkillLevel_Original    = RVAScan<_ImproveLevelExpBySkillLevel>(GET_RVA(ImproveLevelExpBySkillLevel_Original), "F3 0F 58 D3 0F 28 E0 0F 29 34 24 0F 57 F6 0F 28 CA F3 0F 58 CB F3 0F 59 CA F3 0F 59 CD F3 0F 2C C1 66 0F 6E C0 0F 5B C0 F3 0F 5C C8 0F 2F CE 73 04 F3 0F 5C C3", -0x17);
 /*
     Before AE FUN_1406e7430
@@ -708,9 +709,6 @@ static const CodeSignature kDisplayTrueSkillLevel_PatchSig(
     /* offset */     0x120
 );
 
-/// @brief The opcode for an x86 NOP.
-static const uint8_t kNop = 0x90;
-
 /**
  * @brief Lists all the code signatures to be resolved/applied
  *        by ApplyGamePatches().
@@ -720,6 +718,7 @@ static const CodeSignature *const kGameSignatures[] = {
     &kGameSettingCollection_ObjectSig,
     &kGetLevel_FunctionSig,
     &kGetBaseActorValue_FunctionSig,
+    &kGetSkillCoefficients_FunctionSig,
     &kModifyPerkPool_PatchSig,
     &kSkillCapPatch_PatchSig,
     &kHideLegendaryButton_PatchSig,
@@ -731,12 +730,16 @@ static const CodeSignature *const kGameSignatures[] = {
     &kDisplayTrueSkillLevel_PatchSig
 };
 
+/// @brief The opcode for an x86 NOP.
+static const uint8_t kNop = 0x90;
+
 /**
  * @brief Gets a pointer to the player object.
  */
 PlayerCharacter *
 GetPlayer() {
     ASSERT(playerObject);
+    ASSERT(*playerObject);
     return *playerObject;
 }
 
@@ -746,6 +749,7 @@ GetPlayer() {
 SettingCollectionMap *
 GetGameSettings() {
     ASSERT(gameSettings);
+    ASSERT(*gameSettings);
     return *gameSettings;
 }
 
@@ -773,6 +777,27 @@ GetLevel(
 ) {
     ASSERT(GetLevel_Entry);
     return GetLevel_Entry(actor);
+}
+
+/**
+ * @brief Gets the coefficents for the given skill.
+ * @param skill_id The ID of the skill.
+ * @param a The first coefficient.
+ * @param b The second coefficient.
+ * @param c The third coefficient.
+ * @param d The fourth coefficient.
+ * @return Unknown Bool (success?).
+ */
+bool
+GetSkillCoefficients(
+    UInt32 skill_id,
+    float &a,
+    float &b,
+    float &c,
+    float &d
+) {
+    ASSERT(GetSkillCoefficients_Entry);
+    return GetSkillCoefficients_Entry(skill_id, &a, &b, &c, &d);
 }
 
 /**

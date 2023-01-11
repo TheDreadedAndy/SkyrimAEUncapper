@@ -53,22 +53,24 @@ GetFloatGameSetting(
     return val->data.f32;
 }
 
-#if 0
-float CalculateSkillExpForLevel(UInt32 skillID, float skillLevel)
-{
+float 
+CalculateSkillExpForLevel(
+    UInt32 skill_id,
+    float skill_level
+) {
     float result = 0.0f;
-    float fSkillUseCurve = GetFloatGameSetting("fSkillUseCurve");
+    float skill_curve = GetFloatGameSetting("fSkillUseCurve");
 
-    if (skillLevel < settings.GetSkillCap(skillID)) {
-        result = pow(skillLevel, fSkillUseCurve);
+    if (skill_level < settings.GetSkillCap(skill_id)) {
+        result = pow(skill_level, skill_curve);
         float a = 1.0f, b = 0.0f, c = 1.0f, d = 0.0f;
-        if (GetSkillCoefficients(skillID, &a, &b, &c, &d))
+        if (GetSkillCoefficients(skill_id, a, b, c, d)) {
             result = result * c + d;
+        }
     }
 
     return result;
 }
-#endif
 
 float 
 CalculateChargePointsPerUse_Hook(
