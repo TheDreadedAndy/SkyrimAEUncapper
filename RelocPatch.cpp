@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "GameSettings.h"
 #include "BranchTrampoline.h"
 #include "SafeWrite.h"
 #include "reg2k/RVA.h"
@@ -31,6 +32,7 @@
 #include "Hook_Skill.h"
 #include "HookWrappers.h"
 #include "SafeMemSet.h"
+#include "Settings.h"
 
 /// @brief Encodes the various types of hooks which can be injected.
 struct HookType {
@@ -166,9 +168,6 @@ static RelocAddr <uintptr_t *> kHook_ExecuteLegendarySkill_Ret = 0x08C95FD + 0x6
 
 static RelocAddr <uintptr_t *> kHook_CheckConditionForLegendarySkill_Ent = 0x08BF655;
 static RelocAddr <uintptr_t *> kHook_CheckConditionForLegendarySkill_Ret = 0x08BF655 + 0x13;
-
-static RelocAddr <uintptr_t *> kHook_HideLegendaryButton_Ent = 0x08C1456;
-static RelocAddr <uintptr_t *> kHook_HideLegendaryButton_Ret = 0x08C1456 + 0x1D;
 
 static RelocAddr <_GetSkillCoefficients> GetSkillCoefficients(0x03E37F0);
 

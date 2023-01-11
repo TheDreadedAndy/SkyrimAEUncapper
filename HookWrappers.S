@@ -4,6 +4,8 @@
 ; @brief Assembly hook entry points for each hook.
 ; @bug I am convinced that these hooks are tearing calling convention a new one.
 ;
+; FIXME: Figure out if you actually need the red-zones.
+;
 ; ASSEMBLY IS ASSEMBLY.
 ; ASSEMBLY BELONGS IN ASSEMBLY FILES.
 ;
@@ -137,12 +139,15 @@ GetEffectiveSkillLevel_Original PROC PUBLIC
     jmp GetEffectiveSkillLevel_ReturnTrampoline
 GetEffectiveSkillLevel_Original ENDP
 
+; Forces the code which displays skill values in the skills menu to show the
+; true skill level instead of the damaged value by calling the OG function.
 DisplayTrueSkillLevel_Hook PROC PUBLIC
     call GetEffectiveSkillLevel_Original
     cvttss2si ecx, xmm0
     jmp DisplayTrueSkillLevel_ReturnTrampoline
 DisplayTrueSkillLevel_Hook ENDP
 
+; Allows the legendary button to be hidden based on an INI setting.
 HideLegendaryButton_Wrapper PROC PUBLIC
     mov ecx, edx
     call HideLegendaryButton_Hook

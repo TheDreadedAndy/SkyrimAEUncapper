@@ -1,5 +1,13 @@
+/**
+ * @file Hook_SKill.cpp
+ * @author Kassant
+ * @brief TODO
+ */
+
 // FIXME: Using the SKSE pointers for the player and game settings kills
 // version independence.
+
+// FIXME: RVAScan should assert that it found a signature.
 
 #include "Hook_Skill.h"
 
@@ -9,6 +17,7 @@
 #include "HookWrappers.h"
 #include "Settings.h"
 #include "RelocFn.h"
+#include "Compare.h"
 
 using LevelData = PlayerSkills::StatData::LevelData;
 
@@ -37,55 +46,51 @@ GetPlayerLevel() {
     return GetLevel(*g_thePlayer);
 }
 
+/**
+ * @brief Gets a floating point value from the game setting collection.
+ */
+static float
+GetFloatGameSetting(
+    const char* var
+) {
+    ASSERT(*g_gameSettingCollection);
+    Setting* val = (*g_gameSettingCollection)->Get(var);
+    ASSERT(val);
+    return val->data.f32;
+}
+
 #if 0
 float CalculateSkillExpForLevel(UInt32 skillID, float skillLevel)
 {
     float result = 0.0f;
-    float fSkillUseCurve = 1.95f;//0x01D88258;
-    if ((*g_gameSettingCollection) != nullptr)
-    {
-        auto pSetting = (*g_gameSettingCollection)->Get("fSkillUseCurve");
-        fSkillUseCurve = (pSetting != nullptr) ? pSetting->data.f32 : 1.95f;
-    }
-    if (skillLevel < settings.GetSkillCap(skillID))
-    {
+    float fSkillUseCurve = GetFloatGameSetting("fSkillUseCurve");
+
+    if (skillLevel < settings.GetSkillCap(skillID)) {
         result = pow(skillLevel, fSkillUseCurve);
         float a = 1.0f, b = 0.0f, c = 1.0f, d = 0.0f;
         if (GetSkillCoefficients(skillID, &a, &b, &c, &d))
             result = result * c + d;
     }
+
     return result;
 }
 #endif
 
-#if 0
-float CalculateChargePointsPerUse_Hook(float basePoints, float enchantingLevel)
-{
-    float fEnchantingCostExponent = 1.10f;// 0x01D8A058;             //1.10
-    float fEnchantingSkillCostBase = 0.005f; // 0x01D8A010;         //1/200 = 0.005
-    float fEnchantingSkillCostScale = 0.5f;// 0x01D8A040;         //0.5 sqrt
-    //RelocPtr<float> unk0 = 0x014E8F78;             //1.00f
-    float fEnchantingSkillCostMult = 3.00f;// 0x01D8A028;             //3.00
+float 
+CalculateChargePointsPerUse_Hook(
+    float base_points,
+    float enchanting_level
+) {
+    float cost_exponent = GetFloatGameSetting("fEnchantingCostExponent");
+    float cost_base = GetFloatGameSetting("fEnchantingSkillCostBase");
+    float cost_scale = GetFloatGameSetting("fEnchantingSkillCostScale");
+    float cost_mult = GetFloatGameSetting("fEnchantingSkillCostMult");
 
-    if ((*g_gameSettingCollection) != nullptr)
-    {
-        Setting * pSetting = (*g_gameSettingCollection)->Get("fEnchantingCostExponent");
-        fEnchantingCostExponent = (pSetting != nullptr) ? pSetting->data.f32 : 1.10f;
-        pSetting = (*g_gameSettingCollection)->Get("fEnchantingSkillCostBase");
-        fEnchantingSkillCostBase = (pSetting != nullptr) ? pSetting->data.f32 : 0.005f;
-        pSetting = (*g_gameSettingCollection)->Get("fEnchantingSkillCostScale");
-        fEnchantingSkillCostScale = (pSetting != nullptr) ? pSetting->data.f32 : 0.5f;
-        pSetting = (*g_gameSettingCollection)->Get("fEnchantingSkillCostMult");
-        fEnchantingSkillCostMult = (pSetting != nullptr) ? pSetting->data.f32 : 3.00f;
-    }
-
-    enchantingLevel = (enchantingLevel > 199.0f) ? 199.0f : enchantingLevel;
-    float result = fEnchantingSkillCostMult * pow(basePoints, fEnchantingCostExponent) * (1.00f - pow((enchantingLevel * fEnchantingSkillCostBase), fEnchantingSkillCostScale));
-
-    return result;
-    //Charges Per Use = 3 * (base enchantment cost * magnitude / maximum magnitude)^1.1 * (1 - sqrt(skill/200))
+    enchanting_level = MIN(enchanting_level, 199.0f);
+    return cost_mult 
+         * pow(base_points, cost_exponent) 
+         * (1.0f - pow(enchanting_level * cost_base, cost_scale));
 }
-#endif
 
 #if 0
 void ImproveSkillByTraining_Hook(void* pPlayer, UInt32 skillID, UInt32 count)
@@ -171,7 +176,6 @@ ImproveAttributeWhenLevelUp_Hook(
     void* unk0,
     UInt8 unk1
 ) {
-
     Setting *iAVDhmsLevelUp = (*g_gameSettingCollection)->Get("iAVDhmsLevelUp");
     Setting *fLevelUpCarryWeightMod = (*g_gameSettingCollection)->Get("fLevelUpCarryWeightMod");
 
@@ -228,46 +232,43 @@ GetEffectiveSkillLevel_Hook(
 
     if (settings.IsManagedSkill(skill_id)) {
         float cap = settings.GetSkillFormulaCap(skill_id);
-        val = (val <= 0) ? 0 : ((val >= cap) ? cap : val);
+        val = MAX(0, MIN(val, cap));
     }
 
     return val;
 }
 
-#if 0
-void LegendaryResetSkillLevel_Hook(float baseLevel, UInt32 skillID)
-{
-    if ((*g_gameSettingCollection) != nullptr)
-    {
-        Setting * fLegendarySkillResetValue = (*g_gameSettingCollection)->Get("fLegendarySkillResetValue");
-        if (fLegendarySkillResetValue != nullptr)
-        {
-            static float originalSetting = fLegendarySkillResetValue->data.f32;
-            if ((skillID >= 6) && (skillID <= 23))
-            {
-                if (settings.settingsLegendarySkill.bLegendaryKeepSkillLevel)
-                    fLegendarySkillResetValue->data.f32 = baseLevel;
-                else
-                {
-                    UInt32 legendaryLevel = settings.settingsLegendarySkill.iSkillLevelAfterLegendary;
-                    if ((legendaryLevel && legendaryLevel > baseLevel) || (!legendaryLevel && originalSetting > baseLevel))
-                        fLegendarySkillResetValue->data.f32 = baseLevel;
-                    else
-                        fLegendarySkillResetValue->data.f32 = (!legendaryLevel) ? originalSetting : legendaryLevel;
-                }
-            }
-            else
-                fLegendarySkillResetValue->data.f32 = originalSetting;
-        }
-    }
+/**
+ * @brief Determines what level a skill should take on after being legendaried.
+ */
+void 
+LegendaryResetSkillLevel_Hook(
+    float base_level,
+    UInt32 skill_id
+) {
+    ASSERT(settings.IsManagedSkill(skill_id));
+    ASSERT(*g_gameSettingCollection);
+
+    Setting* reset_val = (*g_gameSettingCollection)->Get("fLegendarySkillResetValue");
+    ASSERT(reset_val);
+    reset_val->data.f32 = settings.GetPostLegendarySkillLevel(
+        reset_val->data.f32,
+        base_level
+    );
 }
 
-bool CheckConditionForLegendarySkill_Hook(void* pActorValueOwner, UInt32 skillID)
-{
-    float skillLevel = GetBaseActorValue(*(char**)(g_thePlayer.GetPtr()) + 0xB0, skillID);
-    return (skillLevel >= settings.settingsLegendarySkill.iSkillLevelEnableLegendary) ? true : false;
+/**
+ * @brief Overwrites the check which determines when a skill can be legendaried.
+ */
+extern "C" bool
+CheckConditionForLegendarySkill_Hook(
+    void* av_owner, 
+    UInt32 skill_id
+) {
+    (void)av_owner; // Always the player.
+    float skill_level = GetPlayerBaseSkillLevel(skill_id);
+    return settings.IsLegendaryAvailable(skill_id);
 }
-#endif
 
 /**
  * @brief Determines if the legendary button should be displayed for the given

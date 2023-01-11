@@ -27,6 +27,7 @@
     <ClCompile Include="Settings.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Compare.h" />
     <ClInclude Include="HookWrappers.h" />
     <ClInclude Include="Hook_Skill.h" />
     <ClInclude Include="reg2k\Pattern.h" />

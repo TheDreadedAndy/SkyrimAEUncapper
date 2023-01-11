@@ -8,8 +8,8 @@
 
 #include <cstdio>
 
-#include "common/IErrors.h"
 #include "Settings.h"
+#include "Compare.h"
 #include "Utilities.h"
 
 /**
@@ -503,4 +503,37 @@ Settings::IsLegendaryButtonVisible(
 ) {
     return (skill_level >= settingsLegendarySkill.iSkillLevelEnableLegendary)
         && (!settingsLegendarySkill.bHideLegendaryButton);
+}
+
+/**
+ * @brief Checks if the given skill level is high enough to legendary.
+ */
+bool
+Settings::IsLegendaryAvailable(
+    unsigned int skill_level
+) {
+    return skill_level >= settingsLegendarySkill.iSkillLevelEnableLegendary;
+}
+
+/**
+ * @brief Returns the level a skill should have after being legendaried.
+ */
+float
+Settings::GetPostLegendarySkillLevel(
+    float default_reset,
+    float base_level
+) {
+    // Check if legendarying should reset the level at all.
+    if (settingsLegendarySkill.bLegendaryKeepSkillLevel) {
+        return base_level;
+    }
+
+    // 0 in the conf file means we should use the default value.
+    float reset_level = static_cast<float>(settingsLegendarySkill.iSkillLevelAfterLegendary);
+    if (reset_level == 0) {
+        reset_level = default_reset;
+    }
+
+    // Don't allow legendarying to raise the skill level.
+    return MIN(base_level, reset_level);
 }

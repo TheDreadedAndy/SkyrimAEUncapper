@@ -330,6 +330,11 @@ class Settings {
         UInt32 iSkillLevelAfterLegendary;
     } settingsLegendarySkill;
 
+    struct {
+        UInt32 version;
+        std::string author;
+    } settingsGeneral;
+
   public:
     /// @brief Encodes the attribute selection during level-up.
     typedef enum {
@@ -352,11 +357,8 @@ class Settings {
     void GetAttributeLevelUp(unsigned int player_level, player_attr_e attr,
                              UInt32 &attr_up, float &carry_up);
     bool IsLegendaryButtonVisible(unsigned int skill_level);
-
-    struct {
-        UInt32 version;
-        std::string author;
-    } settingsGeneral;
+    bool IsLegendaryAvailable(unsigned int skill_level);
+    float GetPostLegendarySkillLevel(float default_reset, float base_level);
 };
 
 extern Settings settings;
