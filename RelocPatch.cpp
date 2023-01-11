@@ -27,7 +27,7 @@
 #include "GameSettings.h"
 #include "BranchTrampoline.h"
 #include "SafeWrite.h"
-#include "reg2k/RVA.h"
+#include "addr_lib/versionlibdb.h"
 
 #include "Hook_Skill.h"
 #include "HookWrappers.h"
@@ -85,10 +85,13 @@ struct CodeSignature {
     const char* sig;
     size_t patch_size;
     ptrdiff_t offset;
-    ptrdiff_t indirect_offset;
-    size_t instr_size;
     uintptr_t *return_trampoline;
     void **result;
+
+    // Optional argument for finding new addresses.
+#ifdef _DEBUG
+    uintptr_t real_address;
+#endif
 
     /**
      * @brief Creates a new patch signature structure.
@@ -109,21 +112,23 @@ struct CodeSignature {
         const char* name,
         HookType::t hook_type,
         uintptr_t hook,
-        const char* sig,
+        unsigned long long id,
         size_t patch_size,
         uintptr_t *return_trampoline = nullptr,
-        ptrdiff_t offset = 0,
-        ptrdiff_t indirect_offset = 0,
-        size_t instr_size = 0
+        ptrdiff_t offset = 0
+#ifdef _DEBUG
+        , uintptr_t real_address = 0
+#endif
     ) : name(name),
         hook_type(hook_type),
         hook(hook),
-        sig(sig),
+        id(id),
         patch_size(patch_size),
         offset(offset),
-        indirect_offset(indirect_offset),
-        instr_size(instr_size),
         return_trampoline(return_trampoline),
+#ifdef _DEBUG
+        real_address(real_address),
+#endif
         result(nullptr)
     {}
 
@@ -140,20 +145,21 @@ struct CodeSignature {
      */
     CodeSignature(
         const char *name,
-        const char *sig,
-        void **result,
-        ptrdiff_t offset = 0,
-        ptrdiff_t indirect_offset = 0,
-        size_t instr_size = 0
+        unsigned long long id,
+        void **result
+#ifdef _DEBUG
+        , uintptr_t real_address = 0
+#endif
     ) : name(name),
         hook_type(HookType::None),
         hook(0),
-        sig(sig),
+        id(id),
         patch_size(0),
-        offset(offset),
-        indirect_offset(indirect_offset),
-        instr_size(instr_size),
+        offset(0),
         return_trampoline(nullptr),
+#ifdef _DEBUG
+        real_address(real_address),
+#endif
         result(result)
     {}
 };
@@ -201,15 +207,10 @@ static UInt16 (*GetLevel_Entry)(void*);
 /**
  * @brief The signature used to find the games "GetLevel" function.
  */
-const CodeSignature kGetLevel_FunctionSig(
-    /* name */            "GetLevel",
-    /* sig */             "84 C0 74 24 48 8B CB E8 ? ? ? ? 0F B7 C8 48 8B D7 "
-                          "E8 ? ? ? ? 84 C0 74 0D B0 01 48 8B 5C 24 30 48 83 "
-                          "C4 20 5F C3",
-    /* result */          reinterpret_cast<void**>(&GetLevel_Entry),
-    /* offset */          7,
-    /* indirect_offset */ 1,
-    /* instr_size */      5
+static const CodeSignature kGetLevel_FunctionSig(
+    /* name */   "GetLevel",
+    /* id */     37334,
+    /* result */ reinterpret_cast<void**>(&GetLevel_Entry),
 );
 
 /**
@@ -233,12 +234,10 @@ const CodeSignature kGetLevel_FunctionSig(
  * 48 8b ce        MOV        RCX,RSI
  * ...
  */
-const CodeSignature kGetBaseActorValue_FunctionSig(
-    /* name */       "GetBaseActorValue",
-    /* sig */        "48 89 5C 24 18 48 89 74 24 20 57 48 83 EC 30 48 63 FA "
-                     "48 8D B1 50 01 00 00 48 8B D9 4C 8D 44 24 40 0F 57 C0 "
-                     "8B D7 48 8B CE",
-    /* result */     reinterpret_cast<void**>(&GetBaseActorValue_Entry)
+static const CodeSignature kGetBaseActorValue_FunctionSig(
+    /* name */   "GetBaseActorValue",
+    /* id */     38464,
+    /* result */ reinterpret_cast<void**>(&GetBaseActorValue_Entry)
 );
 
 /**
@@ -279,16 +278,14 @@ const CodeSignature kGetBaseActorValue_FunctionSig(
  * 5f              POP        RDI
  * c3              RET
  */
-const CodeSignature kModifyPerkPool_PatchSig(
+static const CodeSignature kModifyPerkPool_PatchSig(
     /* name */       "ModifyPerkPool",
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(ModifyPerkPool_Wrapper),
-    /* sig */        "48 85 C0 74 ? 66 0F 6E ? 0F 5B C0 F3 0F 58 40 34 F3 0F "
-                     "11 40 34 48 83 C4 20 ? C3 48 8B 15 ? ? ? ? 0F B6 8A 09 "
-                     "0B 00 00 8B C1 03 ? 78",
+    /* id */         52538,
     /* patch_size */ 7,
     /* trampoline */ nullptr,
-    /* offset */     0x1C
+    /* offset */     0x62
 );
 
 /**
@@ -337,15 +334,14 @@ const CodeSignature kModifyPerkPool_PatchSig(
  * Note that the code being patched expects the current skill level in XMM0 and
  * the maximum skill level in XMM10.
  */
-const CodeSignature kSkillCapPatch_PatchSig(
+static const CodeSignature kSkillCapPatch_PatchSig(
     /* name */       "SkillCapPatch",
     /* hook_type */  HookType::Call6,
     /* hook */       reinterpret_cast<uintptr_t>(SkillCapPatch_Wrapper),
-    /* sig */        "48 8B 0D ? ? ? ? 48 81 C1 B8 00 00 00 48 8B 01 FF 50 "
-                     "18 44 0F 28 C0",
+    /* id */         41561,
     /* patch_size */ 9,
     /* trampoline */ nullptr,
-    /* offset */     0x18
+    /* offset */     0x76
 );
 
 #if 0
@@ -373,14 +369,12 @@ const CodeSignature kSkillCapPatch_PatchSig(
  * 48 89 85 c0 00 00 00 	mov    %rax,0xc0(%rbp)
  * 48 8d 3d 58 99 c2 ff 	lea    -0x3d66a8(%rip),%rdi
 */
-const CodeSignature kHideLegendaryButton_PatchSig(
+static const CodeSignature kHideLegendaryButton_PatchSig(
     /* name */       "HideLegendaryButton",
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(HideLegendaryButton_Wrapper),
-    /* sig */        "48 8b 0d ? ? ? ? 48 81 c1 b8 00 00 00 48 8b 01 41 8b "
-                     "d7 ff 50 18 0f 2f 05 ? ? ? ? 72 6b 48 8d 05 ? ? ? ? 48 "
-                     "89 85 c0 00 00 00 48 8d 3d ? ? ? ?",
-    /* patch_size */ 0x1E,
+    /* id */         52527,
+    /* patch_size */ 0x153,
     /* trampoline */ &HideLegendaryButton_ReturnTrampoline
 );
 
@@ -465,16 +459,14 @@ Calls ImprovePlayerSkillPoints offset:0x14070ee08-0x1406ca9b0=0x44458
        14070ee20 4c 8b 64        MOV        R12,qword ptr [RSP + local_20]
                  24 58
 */
-const CodeSignature kImproveSkillLevel_PatchSig(
+static const CodeSignature kImproveSkillLevel_PatchSig(
     /* name */       "ImproveSkillLevel",
     /* hook_type */  HookType::Call5,
     /* hook */       reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Original),
-    /* sig */        "F3 0F 10 54 9F 10 41 3B F4 F3 0F 5C 54 9F 0C 0F 92 C0 "
-                     "8B D5 88 44 24 30 45 33 C9 44 88 6C 24 28 49 8B CF 44 "
-                     "89 6C 24 20 E8 73 FB FF FF FF C6 41 3B F6 72 CC",
+    /* id */         41562,
     /* patch_size */ 5,
     /* trampoline */ nullptr,
-    /* offset */     (0x14070ee08 - 0x14070ede0)
+    /* offset */     0x98
 );
 
 /**
@@ -497,14 +489,13 @@ const CodeSignature kImproveSkillLevel_PatchSig(
                  24 48 fe
                  ff ff ff
 */
-const CodeSignature kImprovePlayerSkillPoints_PatchSig(
-    /* name */        "ImprovePlayerSkillPoints",
-    /* hook_type */   HookType::Jump6,
-    /* hook */        reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Hook),
-    /* sig */         "48 8B C4 57 41 54 41 55 41 56 41 57 48 81 EC 80 01 00 "
-                      "00 48 C7 44 24 48 FE FF FF FF",
-    /* patch_size */  6,
-    /* trampoline */  &ImprovePlayerSkillPoints_ReturnTrampoline
+static const CodeSignature kImprovePlayerSkillPoints_PatchSig(
+    /* name */       "ImprovePlayerSkillPoints",
+    /* hook_type */  HookType::Jump6,
+    /* hook */       reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Hook),
+    /* id */         41561,
+    /* patch_size */ 6,
+    /* trampoline */ &ImprovePlayerSkillPoints_ReturnTrampoline
 );
 
 /**
@@ -516,11 +507,11 @@ const CodeSignature kImprovePlayerSkillPoints_PatchSig(
  * const unsigned char expectedCode[] = {0xf3, 0x0f, 0x58, 0x08, 0xf3, 0x0f, 0x11, 0x08};
  * ASSERT(memcmp((void*)(kHook_ImproveLevelExpBySkillLevel.GetUIntPtr()), expectedCode, sizeof(expectedCode)) == 0);
  */
-const CodeSignature kImproveLevelExpBySkillLevel_PatchSig(
+static const CodeSignature kImproveLevelExpBySkillLevel_PatchSig(
     /* name */       "ImproveLevelExpBySkillLevel",
     /* hook_type */  HookType::Call6,
     /* hook */       reinterpret_cast<uintptr_t>(ImproveLevelExpBySkillLevel_Wrapper),
-    /* sig */        kImprovePlayerSkillPoints_PatchSig.sig,
+    /* id */         41561,
     /* patch_size */ 8,
     /* trampoline */ nullptr,
     /* offset */     0x2D7
@@ -590,16 +581,13 @@ const CodeSignature kImproveLevelExpBySkillLevel_PatchSig(
                  15 b3 5d
                  5a 01
 */
-const CodeSignature kImproveAttributeWhenLevelUp_PatchSig(
+static const CodeSignature kImproveAttributeWhenLevelUp_PatchSig(
     /* name */       "ImproveAttributeWhenLevelUp",
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(ImproveAttributeWhenLevelUp_Hook),
-    /* sig */        "0F B6 DA 48 8B F9 48 8B 15 ? ? ? ? 48 81 C2 28 01 00 "
-                     "00 48 8B 0D ? ? ? ? E8 ? ? ? ? 84 C0 0F 84 BA 00 00 "
-                     "00 84 DB 0F 85 AA 00 00 00",
+    /* id */         51917,
     /* patch_size */ 6,
-    /* trampoline */ &ImproveAttributeWhenLevelUp_ReturnTrampoline,
-    /* offset */     -0x1E
+    /* trampoline */ &ImproveAttributeWhenLevelUp_ReturnTrampoline
 );
 
 #if 0
@@ -713,15 +701,11 @@ FUN_1403d8870
  * 74 2F                je          00007FF64A6284C0
  * 40 B5 01             mov         bpl,1
  */
-const CodeSignature kGetEffectiveSkillLevel_PatchSig(
+static const CodeSignature kGetEffectiveSkillLevel_PatchSig(
     /* name */       "GetEffectiveSkillLevel",
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(GetEffectiveSkillLevel_Hook),
-    /* sig */        "4C 8B DC 55 56 57 41 56 41 57 48 83 EC 50 49 C7 43 A8 "
-                     "FE FF FF FF 49 89 5B 08 0F 29 74 24 40 0F 29 7C 24 30 "
-                     "48 63 F2 48 8B F9 48 8B 05 ? ? ? ? 4C 8B 44 F0 08 41 "
-                     "8B 40 60 C1 E8 12 A8 01 74 3F 48 8B 49 40 48 85 C9 74 "
-                     "36 48 83 79 50 00 74 2F 40 B5 01",
+    /* id */         38462,
     /* patch_size */ 6,
     /* trampoline */ &GetEffectiveSkillLevel_ReturnTrampoline
 );
@@ -763,28 +747,24 @@ const CodeSignature kGetEffectiveSkillLevel_PatchSig(
  * 48 8D 44 24 40       lea         rax,[rsp+40h]
  * 48 3B D8             cmp         rbx,rax
  */
-const CodeSignature kDisplayTrueSkillLevel_PatchSig(
+static const CodeSignature kDisplayTrueSkillLevel_PatchSig(
     /* name */       "DisplayTrueSkillLevel",
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(DisplayTrueSkillLevel_Hook),
-    /* sig */        "FF 50 08 F3 0F 2C C8 81 F9 00 00 00 80 74 1E 66 0F 6E "
-                     "C9 0F 5B C9 0F 2E C8 74 12 0F 14 C0 0F 50 C0 83 E0 01 "
-                     "2B C8 66 0F 6E C1 0F 5B C0 4D 8B CE 4C 89 74 24 40 BA "
-                     "03 00 00 00 89 54 24 48 F3 0F 5A C0 F2 0F 11 44 24 50 "
-                     "48 8D 0C 76 48 8D 9D 90 00 00 00 48 8D 1C CB 48 8D 44 "
-                     "24 40 48 3B D8",
+    /* id */         52525,
     /* patch_size */ 7,
-    /* trampoline */ &DisplayTrueSkillLevel_ReturnTrampoline
+    /* trampoline */ &DisplayTrueSkillLevel_ReturnTrampoline,
+    /* offset */     0x120
 );
 
 /// @brief The opcode for an x86 NOP.
-const uint8_t kNop = 0x90;
+static const uint8_t kNop = 0x90;
 
 /**
  * @brief Lists all the code signatures to be resolved/applied
  *        by ApplyGamePatches().
  */
-const CodeSignature *kGameSignatures[] = {
+static const CodeSignature *const kGameSignatures[] = {
     &kGetLevel_FunctionSig,
     &kGetBaseActorValue_FunctionSig,
     &kModifyPerkPool_PatchSig,
@@ -829,29 +809,35 @@ GetLevel(
  */
 void
 ApplyGamePatches() {
-    const size_t kNumSigs = sizeof(kGameSignatures) / sizeof(const CodeSignature*);
-    uintptr_t real_addrs[kNumSigs];
+    const size_t kNumSigs = sizeof(kGameSignatures) / sizeof(void*);
 
     _MESSAGE("Applying game patches...");
 
-    // Resolve each address.
-    for (size_t i = 0; i < kNumSigs; i++) {
-        auto sig = kGameSignatures[i];
-        auto rva = RVAScan<void*>(
-            sig->name,
-            sig->sig,
-            sig->offset,
-            sig->indirect_offset,
-            sig->instr_size
-        );
-        real_addrs[i] = rva.GetUIntPtr();
-        ASSERT(real_addrs[i]);
-    }
+    auto db = VersionDb();
+    db.Load();
 
-    // Apply each patch.
     for (size_t i = 0; i < kNumSigs; i++) {
         auto sig = kGameSignatures[i];
-        uintptr_t real_address = real_addrs[i];
+        unsigned long long id = sig->id;
+
+#ifdef _DEBUG
+        if (sig->real_address) {
+            ASSERT(db.FindIdByAddress(reinterpret_cast<void*>(real_address), id));
+        }
+#endif
+
+        void *addr = db.FindAddressById(id);
+        ASSERT(addr);
+        uintptr_t real_address = reinterpret_cast<uintptr_t>(addr) + sig->offset;
+
+        _MESSAGE(
+            "Signature %s ([ID: %zu] + %zx) is at address %zu",
+            sig->name,
+            id,
+            sig->offset,
+            real_address
+        );
+
         size_t hook_size = HookType::Size(sig->hook_type);
         size_t return_address = real_address + hook_size;
 
