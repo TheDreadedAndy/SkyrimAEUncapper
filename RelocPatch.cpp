@@ -1,7 +1,7 @@
 /**
  * @file RelocPatch.cpp
  * @author Andrew Spaulding (Kasplat)
- * @author Kassant
+ * @author Kassent
  * @author Vadfromnu
  * @brief Finds code signatures within the game and applies patches to them.
  * @bug No known bugs.
@@ -181,15 +181,16 @@ extern "C" {
  */
 ///@{
 static PlayerCharacter **playerObject;
-static SettingCollectionMap **gameSettings;
+static void **gameSettings;
 ///@}
 
 /**
  * @brief Holds the function pointers which we use to call the game functions.
  */
 ///@{
-static float (*GetBaseActorValue_Entry)(void *, UInt32);
+static float (*GetBaseActorValue_Entry)(void*, UInt32);
 static UInt16 (*GetLevel_Entry)(void*);
+static Setting *(*GetGameSetting_Entry)(void*, const char*);
 ///@}
 
 /**
@@ -226,6 +227,15 @@ static const CodeSignature kGetBaseActorValue_FunctionSig(
     /* name */   "GetBaseActorValue",
     /* id */     38464,
     /* result */ reinterpret_cast<void**>(&GetBaseActorValue_Entry)
+);
+
+/**
+ * @brief Gets a game setting in the settings collection.
+ */
+static const CodeSignature kGetGameSetting_FunctionSig(
+    /* name */   "GetGameSetting",
+    /* id */     22788,
+    /* result */ reinterpret_cast<void**>(&GetGameSetting_Entry)
 );
 
 /**
@@ -475,6 +485,7 @@ static const CodeSignature *const kGameSignatures[] = {
     &kGameSettingCollection_ObjectSig,
     &kGetLevel_FunctionSig,
     &kGetBaseActorValue_FunctionSig,
+    &kGetGameSetting_FunctionSig,
 
     &kSkillCapPatch_PatchSig,
     &kCalculateChargePointsPerUse_PatchSig,
@@ -509,11 +520,14 @@ GetPlayer() {
 /**
  * @brief Gets a pointer to the game settings object.
  */
-SettingCollectionMap *
-GetGameSettings() {
+Setting *
+GetGameSetting(
+    const char *var
+) {
     ASSERT(gameSettings);
     ASSERT(*gameSettings);
-    return *gameSettings;
+    ASSERT(GetGameSetting_Entry);
+    return GetGameSetting_Entry(*gameSettings, var);
 }
 
 /**

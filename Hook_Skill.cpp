@@ -1,6 +1,6 @@
 /**
  * @file Hook_SKill.cpp
- * @author Kassant
+ * @author Kassent
  * @author Vadfromnu
  * @author Andrew Spaulding (Kasplat)
  * @brief C++ implementation of game patches.
@@ -35,7 +35,7 @@ GetPlayerBaseSkillLevel(
     unsigned int skill_id
 ) {
     return static_cast<unsigned int>(
-        GetBaseActorValue(reinterpret_cast<char*>(GetPlayer()) + 0xB8, skill_id)
+        GetBaseActorValue(reinterpret_cast<char*>(GetPlayer()) + 0xB8, skill_id) // FIXME: Relocatable offset.
     );
 }
 
@@ -54,7 +54,7 @@ static float
 GetFloatGameSetting(
     const char* var
 ) {
-    Setting* val = (GetGameSettings())->Get(var);
+    Setting *val = GetGameSetting(var);
     ASSERT(val);
     return val->data.f32;
 }
@@ -147,7 +147,7 @@ extern "C" void
 ModifyPerkPool_Hook(
     SInt8 count
 ) {
-    UInt8* points = &((GetPlayer())->numPerkPoints);
+    UInt8 *points = &((GetPlayer())->numPerkPoints); // FIXME: Needs to be relocatable.
     if (count > 0) { // Add perk points
         UInt32 sum = settings.GetPerkDelta(GetPlayerLevel()) + *points;
         *points = (sum > 0xFF) ? 0xFF : static_cast<UInt8>(sum);
@@ -188,8 +188,8 @@ ImproveAttributeWhenLevelUp_Hook(
     void* unk0,
     UInt8 unk1
 ) {
-    Setting *iAVDhmsLevelUp = (GetGameSettings())->Get("iAVDhmsLevelUp");
-    Setting *fLevelUpCarryWeightMod = (GetGameSettings())->Get("fLevelUpCarryWeightMod");
+    Setting *iAVDhmsLevelUp = GetGameSetting("iAVDhmsLevelUp");
+    Setting *fLevelUpCarryWeightMod = GetGameSetting("fLevelUpCarryWeightMod");
 
     ASSERT(iAVDhmsLevelUp);
     ASSERT(fLevelUpCarryWeightMod);
@@ -214,7 +214,7 @@ extern "C" void
 LegendaryResetSkillLevel_Hook(
     float base_level
 ) {
-    Setting* reset_val = (GetGameSettings())->Get("fLegendarySkillResetValue");
+    Setting *reset_val = GetGameSetting("fLegendarySkillResetValue");
     ASSERT(reset_val);
     reset_val->data.f32 = settings.GetPostLegendarySkillLevel(
         reset_val->data.f32,

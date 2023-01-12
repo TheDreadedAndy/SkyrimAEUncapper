@@ -2,7 +2,7 @@
 ; @file HookWrappers.S
 ; @author Andrew Spaulding (Kasplat)
 ; @author Vadfromnu
-; @author Kassant
+; @author Kassent
 ; @brief Assembly hook entry points for each hook.
 ; @bug No known bugs.
 ;
@@ -178,7 +178,7 @@ LegendaryResetSkillLevel_Wrapper ENDP
 ; Since we are overwriting another fn call, we dont need to reg save.
 CheckConditionForLegendarySkill_Wrapper PROC PUBLIC
     mov edx, eax
-    lea rcx, [rdi + 0b8h]
+    lea rcx, [rdi + 0b8h] ; FIXME: Offest
     call CheckConditionForLegendarySkill_Hook
     cmp al, 1
     jmp CheckConditionForLegendarySkill_ReturnTrampoline

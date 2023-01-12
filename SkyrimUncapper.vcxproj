@@ -35,6 +35,7 @@
     <ClInclude Include="resource.h" />
     <ClInclude Include="SafeMemSet.h" />
     <ClInclude Include="Settings.h" />
+    <ClInclude Include="simpleini\SimpleIni.h" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="HookWrappers.S">

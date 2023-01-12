@@ -12,7 +12,7 @@
 #include "GameAPI.h"
 
 PlayerCharacter *GetPlayer(void);
-SettingCollectionMap *GetGameSettings(void);
+Setting *GetGameSetting(const char *var);
 UInt16 GetLevel(void *actor);
 float GetBaseActorValue(void *actor, UInt32 skill_id);
 

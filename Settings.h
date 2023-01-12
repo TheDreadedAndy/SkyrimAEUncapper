@@ -2,7 +2,7 @@
  * @file Settings.h
  * @brief Defines the class which is used to load and interact with the settings
  *        specified by the player in the INI file.
- * @author Kassant.
+ * @author Kassent.
  * @author Andrew Spaulding (Kasplat)
  *
  * Rampaged through by Kasplat to change the interface/encapsulation to be
@@ -20,7 +20,9 @@
 #include "common/IErrors.h"
 #include "simpleini/SimpleIni.h"
 
-#define CONFIG_VERSION 5
+// HOTFIX: Changing back to 4 (from 5) until memory corruption can be tracked
+// down.
+#define CONFIG_VERSION 4
 
 template<typename T>
 class LeveledSetting {
@@ -55,6 +57,7 @@ class LeveledSetting {
         size_t lo = 0, hi = list.size();
         size_t mid = lo + ((hi - lo) >> 1);
         while (lo < hi) {
+            ASSERT(mid < list.size());
             if (level < list[mid].level) {
                 hi = mid;
             } else if (level > list[mid].level) {
@@ -88,6 +91,7 @@ class LeveledSetting {
         size_t lo = 0, hi = list.size();
         size_t mid = lo + ((hi - lo) >> 1);
         while (lo < hi) {
+            ASSERT(mid < list.size());
             if ((list[mid].level <= level)
                     && ((mid + 1 == list.size()) || (level < list[mid + 1].level))) {
                 return list[mid].item;
@@ -344,7 +348,6 @@ class Settings {
         ATTR_STAMINA
     } player_attr_e;
 
-    Settings();
     bool ReadConfig(const std::string& path);
 
     bool IsManagedSkill(unsigned int skill_id);

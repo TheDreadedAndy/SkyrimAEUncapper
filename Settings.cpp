@@ -1,6 +1,6 @@
 /**
  * @file Settings.cpp
- * @author Kassant
+ * @author Kassent
  * @author Andrew Spaulding (Kasplat)
  * @brief Manages INI file settings.
  *
@@ -54,9 +54,9 @@ do {\
     LeveledSetting<float>::LevelItem level;\
     for (size_t i = 0; i < (LIST).Size(); i++) {\
         (LIST).GetItem(i, level);\
-        char _key[16];\
-        sprintf_s(_key, "%d", level.level);\
-        IniSetValueFloat(INI, SECTION, _key, level.item, (level.level == 1) ? (COMMENT) : NULL);\
+        char _key[32];\
+        ASSERT(sprintf_s(_key, "%d", level.level) > 0);\
+        ASSERT((INI).SetDoubleValue(SECTION, _key, level.item, (!i) ? (COMMENT) : NULL) >= 0);\
     }\
 } while (0)
 
@@ -65,45 +65,14 @@ do {\
     LeveledSetting<UInt32>::LevelItem level;\
     for (size_t i = 0; i < (LIST).Size(); i++) {\
         (LIST).GetItem(i, level);\
-        char _key[16];\
-        char _val[16];\
-        sprintf_s(_key, "%d", level.level);\
-        sprintf_s(_val, "%d", level.item);\
-        (INI).SetValue(SECTION, _key, _val, (level.level == 1) ? (COMMENT) : NULL);\
+        char _key[32];\
+        ASSERT(sprintf_s(_key, "%d", level.level) > 0);\
+        ASSERT((INI).SetLongValue(SECTION, _key, level.item, (!i) ? (COMMENT) : NULL) >= 0);\
     }\
 } while (0)
 
 /// @brief Global settings manager, used throughout this plugin.
 Settings settings;
-
-/**
- * @brief Sets a floating point value in an INI file.
- * @param ini The INI to set the value in.
- * @param section The section to set the value in.
- * @param key The key to set the value under.
- * @param val The floating point value.
- * @param comment An optional comment on the pair.
- */
-static void
-IniSetValueFloat(
-    CSimpleIniA &ini,
-    const char *section,
-    const char *key,
-    float val,
-    const char *comment
-) {
-    ASSERT(section);
-    ASSERT(key);
-
-    // Floats can be long bois.
-    const size_t buf_size = 64;
-    char buf[buf_size];
-
-    int res = snprintf(buf, buf_size, "%.2f", val);
-    ASSERT((0 <= res) && (res < buf_size));
-
-    ini.SetValue(section, key, buf, comment);
-}
 
 /**
  * @brief Fills the given string buffer with prefix + skill_name
@@ -151,52 +120,57 @@ Settings::SaveConfig(
 ) {
     const size_t skill_buf_size = 128;
     char skill_buf[skill_buf_size];
+    
+    _MESSAGE("Saving config file...");
 
     // Clear the INI file; we will rewrite it.
     ini.Reset();
 
     // Reset the general information.
     settingsGeneral.version = CONFIG_VERSION;
-    ini.SetLongValue("General", "Version", CONFIG_VERSION, "# Configuration file version, DO NOT CHANGE");
-    ini.SetValue("General", "Author", "Kassent", NULL);
+    ASSERT(ini.SetLongValue(
+        "General",
+        "Version", 
+        CONFIG_VERSION, 
+        "# Configuration file version, DO NOT CHANGE"
+    ) >= 0);
+    ASSERT(ini.SetValue("General", "Author", "Kassent", NULL) >= 0);
 
     // Save the per-skill settings.
     for (int i = 0; i < kSkillCount; i++) {
         /* Skill cap settings */
         GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "i");
 
-        ini.SetLongValue(
+        ASSERT(ini.SetLongValue(
             "SkillCaps",
             skill_buf,
             settingsSkillCaps[i],
             (!i) ? kSkillCapsDesc : NULL
-        );
+        ) >= 0);
 
-        ini.SetLongValue(
+        ASSERT(ini.SetLongValue(
             "SkillFormulaCaps",
             skill_buf,
             settingsSkillFormulaCaps[i],
             (!i) ? kSkillFormulaCapsDesc : NULL
-        );
+        ) >= 0);
 
         /* Exp multiplier settings */
         GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "f");
 
-        IniSetValueFloat(
-            ini,
+        ASSERT(ini.SetDoubleValue(
             "SkillExpGainMults",
             skill_buf,
             settingsSkillExpGainMults[i],
             (!i) ? kSkillExpGainMultsDesc : NULL
-        );
+        ) >= 0);
 
-        IniSetValueFloat(
-            ini,
+        ASSERT(ini.SetDoubleValue(
             "LevelSkillExpMults",
             skill_buf,
             settingsLevelSkillExpMults[i],
             (!i) ? kLevelSkillExpMultsDesc : NULL
-        );
+        ) >= 0);
 
         GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "SkillExpGainMults\\CharacterLevel\\");
         SaveFloatLevelListSection(
@@ -240,30 +214,30 @@ Settings::SaveConfig(
     SaveIntLevelListSection(ini, settingsCarryWeightAtMagickaLevelUp, "CarryWeightAtMagickaLevelUp", kCarryWeightAtMagickaLevelUpDesc);
     SaveIntLevelListSection(ini, settingsCarryWeightAtStaminaLevelUp, "CarryWeightAtStaminaLevelUp", kCarryWeightAtStaminaLevelUpDesc);
 
-    ini.SetBoolValue(
+    ASSERT(ini.SetBoolValue(
         "LegendarySkill",
         "bLegendaryKeepSkillLevel",
         settings.settingsLegendarySkill.bLegendaryKeepSkillLevel,
         kLegendaryKeepSkillLevelDesc
-    );
-    ini.SetBoolValue(
+    ) >= 0);
+    ASSERT(ini.SetBoolValue(
         "LegendarySkill",
         "bHideLegendaryButton",
         settings.settingsLegendarySkill.bHideLegendaryButton,
         kHideLegendaryButtonDesc
-    );
-    ini.SetLongValue(
+    ) >= 0);
+    ASSERT(ini.SetLongValue(
         "LegendarySkill",
         "iSkillLevelEnableLegendary",
         settings.settingsLegendarySkill.iSkillLevelEnableLegendary,
         kSkillLevelEnableLegendaryDesc
-    );
-    ini.SetLongValue(
+    ) >= 0);
+    ASSERT(ini.SetLongValue(
         "LegendarySkill",
         "iSkillLevelAfterLegendary",
         settings.settingsLegendarySkill.iSkillLevelAfterLegendary,
         kSkillLevelAfterLegendaryDesc
-    );
+    ) >= 0);
 
     // Save the generated INI file.
     SI_Error er = ini.SaveFile(path.c_str());
@@ -271,15 +245,10 @@ Settings::SaveConfig(
         _ERROR("Can't save config file ret:%d errno:%d", (int)er,  errno);
         return false;
     } else {
-        _MESSAGE("Config file updated.");
+        _MESSAGE("Config file saved.");
         return true;
     }
 }
-
-/**
- * @brief Creates a new settings manager.
- */
-Settings::Settings() {}
 
 /**
  * @brief Loads in the INI configuration from the given path.
@@ -294,7 +263,7 @@ Settings::ReadConfig(
     const std::string &path
 ) {
     // Attempt to load the INI file.
-    _MESSAGE("Config file path:%s", path.c_str());
+    _MESSAGE("Loading config file %s...", path.c_str());
     CSimpleIniA ini;
     SI_Error er = ini.LoadFile(path.c_str());
     bool needSave = false;
@@ -313,9 +282,9 @@ Settings::ReadConfig(
 
     // Check if we need to write out the configuration.
     if (needSave) {
-        _MESSAGE("Config file does not exist. Trying to create.");
-    } else if (settingsGeneral.version != CONFIG_VERSION) {
-        _MESSAGE("Config file is outdated. Updating.");
+        _MESSAGE("Config file does not exist. It will be created.");
+    } else if (settingsGeneral.version < CONFIG_VERSION) {
+        _MESSAGE("Config file is outdated. It will be updated.");
         needSave = true;
     }
 
@@ -366,6 +335,8 @@ Settings::ReadConfig(
         ini.GetLongValue("LegendarySkill", "iSkillLevelEnableLegendary", 100);
     settings.settingsLegendarySkill.iSkillLevelAfterLegendary =
         ini.GetLongValue("LegendarySkill", "iSkillLevelAfterLegendary", 0);
+
+    _MESSAGE("Done!");
 
     // Save the configuration, if necessary.
     if (needSave) {
