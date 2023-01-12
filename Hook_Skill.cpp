@@ -4,7 +4,7 @@
  * @author Vadfromnu
  * @author Andrew Spaulding (Kasplat)
  * @brief C++ implementation of game patches.
- * 
+ *
  * Note that several of these functions first go through wrappers in
  * HookWrappers.S. See the documentation in RelocPatch.cpp and HookWrappers.S
  * for more information on how these patches are modifying the game.
@@ -60,83 +60,58 @@ GetFloatGameSetting(
 }
 
 /**
- * @brief Calculates the amount of exp needed to raise a skill to its next 
- *        level.
- * 
- * https://en.uesp.net/wiki/Skyrim:Leveling#Skill_XP
- * 
- * TODO: It'd be better to hook into the actual game function. Reimplementing
- *       means that any mod which alters this equation will be ignored.
- * 
- * @param skill_id The skill this calculation is being performed on.
- * @return The amount of exp needed.
+ * @brief Determines the real skill cap of the given skill.
  */
-static float 
-CalculateSkillExpForLevel(
+extern "C" float
+GetSkillCap_Hook(
     UInt32 skill_id
 ) {
-    float result = 0.0f;
-    float skill_level = GetPlayerBaseSkillLevel(skill_id);
-    float skill_curve = GetFloatGameSetting("fSkillUseCurve");
-
-    if (skill_level < settings.GetSkillCap(skill_id)) {
-        result = pow(skill_level, skill_curve);
-        float a = 1.0f, b = 0.0f, c = 1.0f, d = 0.0f;
-        if (GetSkillCoefficients(skill_id, a, b, c, d)) {
-            result = result * c + d;
-        }
-    }
-
-    return result;
+    return settings.GetSkillCap(skill_id);
 }
 
 /**
- * @brief Improves a player skill through training.
- * 
- * Reimplements the games original ImproveSkillByTraining function
- * to uncap it and ensure it calls the correct ImprovePlayerSkillPoints()
- * function.
- * 
- * @param skill_data A pointer to the players skill data.
- * @param skill_id The skill to be improved.
- * @param count The number of levels to improve the skill.
+ * @brief Reimplements the enchantment charge point equation.
+ *
+ * The original equation would fall apart for levels above 199, se this
+ * implementation caps the level in the calculation to 199.
+ *
+ * @param base_points The base point value for the enchantment.
+ * @param enchanting_level The enchanting skill of the player.
+ * @return The charge points per use on the item.
  */
-void
-ImproveSkillByTraining_Hook(
-    PlayerSkills *skill_data, 
-    UInt32 skill_id,
-    UInt32 count
+float
+CalculateChargePointsPerUse_Hook(
+    float base_points,
+    float enchanting_level
 ) {
-    ASSERT(settings.IsManagedSkill(skill_id));
-    LevelData *level_data = &(skill_data->data->levelData[skill_id - 6]); // FIXME
+    float cost_exponent = GetFloatGameSetting("fEnchantingCostExponent");
+    float cost_base = GetFloatGameSetting("fEnchantingSkillCostBase");
+    float cost_scale = GetFloatGameSetting("fEnchantingSkillCostScale");
+    float cost_mult = GetFloatGameSetting("fEnchantingSkillCostMult");
 
-    // pointsMax == 0 => level cap has been reached.
-    float skill_progress = 0;
-    if (level_data->pointsMax > 0) {
-        skill_progress = level_data->points / level_data->pointsMax;
+    enchanting_level = MIN(enchanting_level, 199.0f);
+    return cost_mult
+        * pow(base_points, cost_exponent)
+        * (1.0f - pow(enchanting_level * cost_base, cost_scale));
+}
+
+/**
+ * @brief Caps the formulas for the given skill_id to the value specified in
+ *        the INI file.
+ */
+float
+GetEffectiveSkillLevel_Hook(
+    void *av,
+    UInt32 skill_id
+) {
+    float val = GetEffectiveSkillLevel_Original(av, skill_id);
+
+    if (settings.IsManagedSkill(skill_id)) {
+        float cap = settings.GetSkillFormulaCap(skill_id);
+        val = MAX(0, MIN(val, cap));
     }
 
-    for (UInt32 i = 0; i < count; ++i) {
-        // We need to overwrite pointsMax to uncap training.
-        level_data->pointsMax = CalculateSkillExpForLevel(skill_id);
-        level_data->points = 0;
-
-        // We call the original here; we don't want our multipliers.
-        // This invocation is the same as in the original implementation.
-        // I have no idea what unk4 is doing.
-        ImprovePlayerSkillPoints_Original(
-            skill_data,
-            skill_id, 
-            level_data->pointsMax, 
-            0, 
-            0, 
-            0, 
-            (i < count - 1)
-        );
-    }
-
-    level_data->pointsMax = CalculateSkillExpForLevel(skill_id);
-    level_data->points += level_data->pointsMax * skill_progress;
+    return val;
 }
 
 /**
@@ -161,6 +136,25 @@ ImprovePlayerSkillPoints_Hook(
     }
 
     ImprovePlayerSkillPoints_Original(skill_data, skill_id, exp, unk1, unk2, unk3, unk4);
+}
+
+/**
+ * @brief Adjusts the number of perks the player receives at a level-up.
+ * @param count The original number of points the perk pool was being
+ *        adjusted by.
+ */
+extern "C" void
+ModifyPerkPool_Hook(
+    SInt8 count
+) {
+    UInt8* points = &((GetPlayer())->numPerkPoints);
+    if (count > 0) { // Add perk points
+        UInt32 sum = settings.GetPerkDelta(GetPlayerLevel()) + *points;
+        *points = (sum > 0xFF) ? 0xFF : static_cast<UInt8>(sum);
+    } else { // Remove perk points
+        SInt32 sum = *points + count;
+        *points = (sum < 0) ? 0 : static_cast<UInt8>(sum);
+    }
 }
 
 /**
@@ -214,35 +208,6 @@ ImproveAttributeWhenLevelUp_Hook(
 }
 
 /**
- * @brief Adjusts the number of perks the player receives at a level-up.
- * @param count The original number of points the perk pool was being
- *        adjusted by.
- */
-extern "C" void
-ModifyPerkPool_Hook(
-    SInt8 count
-) {
-    UInt8* points = &((GetPlayer())->numPerkPoints);
-    if (count > 0) { // Add perk points
-        UInt32 sum = settings.GetPerkDelta(GetPlayerLevel()) + *points;
-        *points = (sum > 0xFF) ? 0xFF : static_cast<UInt8>(sum);
-    } else { // Remove perk points
-        SInt32 sum = *points + count;
-        *points = (sum < 0) ? 0 : static_cast<UInt8>(sum);
-    }
-}
-
-/**
- * @brief Determines the real skill cap of the given skill.
- */
-extern "C" float
-GetSkillCap_Hook(
-    UInt32 skill_id
-) {
-    return settings.GetSkillCap(skill_id);
-}
-
-/**
  * @brief Determines what level a skill should take on after being legendaried.
  */
 extern "C" void
@@ -280,49 +245,4 @@ HideLegendaryButton_Hook(
 ) {
     float skill_level = GetPlayerBaseSkillLevel(skill_id);
     return settings.IsLegendaryButtonVisible(skill_level);
-}
-
-/**
- * @brief Reimplements the enchantment charge point equation.
- *
- * The original equation would fall apart for levels above 199, se this
- * implementation caps the level in the calculation to 199.
- *
- * @param base_points The base point value for the enchantment.
- * @param enchanting_level The enchanting skill of the player.
- * @return The charge points per use on the item.
- */
-float
-CalculateChargePointsPerUse_Hook(
-    float base_points,
-    float enchanting_level
-) {
-    float cost_exponent = GetFloatGameSetting("fEnchantingCostExponent");
-    float cost_base = GetFloatGameSetting("fEnchantingSkillCostBase");
-    float cost_scale = GetFloatGameSetting("fEnchantingSkillCostScale");
-    float cost_mult = GetFloatGameSetting("fEnchantingSkillCostMult");
-
-    enchanting_level = MIN(enchanting_level, 199.0f);
-    return cost_mult
-        * pow(base_points, cost_exponent)
-        * (1.0f - pow(enchanting_level * cost_base, cost_scale));
-}
-
-/**
- * @brief Caps the formulas for the given skill_id to the value specified in
- *        the INI file.
- */
-float
-GetEffectiveSkillLevel_Hook(
-    void *av,
-    UInt32 skill_id
-) {
-    float val = GetEffectiveSkillLevel_Original(av, skill_id);
-
-    if (settings.IsManagedSkill(skill_id)) {
-        float cap = settings.GetSkillFormulaCap(skill_id);
-        val = MAX(0, MIN(val, cap));
-    }
-
-    return val;
 }

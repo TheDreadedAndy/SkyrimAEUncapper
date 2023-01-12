@@ -13,8 +13,7 @@
 
 PlayerCharacter *GetPlayer(void);
 SettingCollectionMap *GetGameSettings(void);
-float GetBaseActorValue(void *actor, UInt32 skill_id);
 UInt16 GetLevel(void *actor);
-bool GetSkillCoefficients(UInt32 skill_id, float &a, float &b, float &c, float &d);
+float GetBaseActorValue(void *actor, UInt32 skill_id);
 
 #endif /* __SKYRIM_UNCAPPER_AE_RELOC_FN_H__ */

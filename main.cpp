@@ -59,9 +59,8 @@ static bool SkyrimUncapper_Initialize(const SKSEInterface* skse)
     _MESSAGE("imagebase = %016I64X", imgBase);
 
     // We only have a few hooks, so a small trampoline buffer is fine.
-    // This will need to be increased if many more hooks are added (> ~30).
-    // FIXME: Adjust once done adding signatures.
-    if (!g_branchTrampoline.Create(256, imgBase)) {
+    // This will need to be increased if many more hooks are added (> ~15).
+    if (!g_branchTrampoline.Create(128, imgBase)) {
         _ERROR("couldn't create branch trampoline. this is fatal. skipping remainder of init process.");
         return false;
     }

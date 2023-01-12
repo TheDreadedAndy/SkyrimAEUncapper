@@ -13,16 +13,18 @@
 .CODE
 
 EXTERN GetSkillCap_Hook:PROC
-EXTERN ModifyPerkPool_Hook:PROC
-EXTERN ImproveLevelExpBySkillLevel_Hook:PROC
-EXTERN LegendaryResetSkillLevel_Hook:PROC
-EXTERN CheckConditionForLegendarySkill_Hook:PROC
-EXTERN HideLegendaryButton_Hook:PROC
-EXTERN ImprovePlayerSkillPoints_ReturnTrampoline:PTR
-EXTERN ImproveAttributeWhenLevelUp_ReturnTrampoline:PTR
 EXTERN GetEffectiveSkillLevel_ReturnTrampoline:PTR
 EXTERN DisplayTrueSkillLevel_ReturnTrampoline:PTR
+
+EXTERN ImprovePlayerSkillPoints_ReturnTrampoline:PTR
+EXTERN ModifyPerkPool_Hook:PROC
+EXTERN ImproveLevelExpBySkillLevel_Hook:PROC
+EXTERN ImproveAttributeWhenLevelUp_ReturnTrampoline:PTR
+
+EXTERN LegendaryResetSkillLevel_Hook:PROC
+EXTERN CheckConditionForLegendarySkill_Hook:PROC
 EXTERN CheckConditionForLegendarySkill_ReturnTrampoline:PTR
+EXTERN HideLegendaryButton_Hook:PROC
 EXTERN HideLegendaryButton_ReturnTrampoline:PTR
 
 ; Saves all caller saved registers, except rax.
@@ -84,6 +86,35 @@ SkillCapPatch_Wrapper PROC PUBLIC
     ret
 SkillCapPatch_Wrapper ENDP
 
+; This function allows us to call the OG GetEffectiveSkillLevel function by
+; running the overwritten instructions and then jumping to the address after
+; our hook.
+GetEffectiveSkillLevel_Original PROC PUBLIC
+    mov r11, rsp
+    push rbp
+    push rsi
+    push rdi
+    jmp GetEffectiveSkillLevel_ReturnTrampoline
+GetEffectiveSkillLevel_Original ENDP
+
+; Forces the code which displays skill values in the skills menu to show the
+; true skill level instead of the damaged value by calling the OG function.
+DisplayTrueSkillLevel_Hook PROC PUBLIC
+    call GetEffectiveSkillLevel_Original ; Replacing a call, no need to save.
+    cvttss2si ecx, xmm0
+    jmp DisplayTrueSkillLevel_ReturnTrampoline
+DisplayTrueSkillLevel_Hook ENDP
+
+; This function allows us to call the games original ImprovePlayerSkillPoints
+; function by reimplementing the code our hook replaces and then jumping to
+; the original game code that follows our hook.
+ImprovePlayerSkillPoints_Original PROC PUBLIC
+    mov rax, rsp ; 48 8b c4
+    push rdi     ; 57
+    push r12     ; 41 54
+    jmp ImprovePlayerSkillPoints_ReturnTrampoline
+ImprovePlayerSkillPoints_Original ENDP
+
 ; This function is tailed into by our hook, so we dont need to worry about
 ; register saving.
 ModifyPerkPool_Wrapper PROC PUBLIC
@@ -122,16 +153,6 @@ ImproveLevelExpBySkillLevel_Wrapper PROC PUBLIC
     ret
 ImproveLevelExpBySkillLevel_Wrapper ENDP
 
-; This function allows us to call the games original ImprovePlayerSkillPoints
-; function by reimplementing the code our hook replaces and then jumping to
-; the original game code that follows our hook.
-ImprovePlayerSkillPoints_Original PROC PUBLIC
-    mov rax, rsp ; 48 8b c4
-    push rdi     ; 57
-    push r12     ; 41 54
-    jmp ImprovePlayerSkillPoints_ReturnTrampoline
-ImprovePlayerSkillPoints_Original ENDP
-
 ; This function allows us to call the games OG ImproveAttributeWhenLevelUp
 ; function by reimplementing the code we replaced and then jumping to
 ; the address immediately after our hook.
@@ -140,25 +161,6 @@ ImproveAttributeWhenLevelUp_Original PROC PUBLIC
     sub rsp, 30h
     jmp ImproveAttributeWhenLevelUp_ReturnTrampoline
 ImproveAttributeWhenLevelUp_Original ENDP
-
-; This function allows us to call the OG GetEffectiveSkillLevel function by
-; running the overwritten instructions and then jumping to the address after
-; our hook.
-GetEffectiveSkillLevel_Original PROC PUBLIC
-    mov r11, rsp
-    push rbp
-    push rsi
-    push rdi
-    jmp GetEffectiveSkillLevel_ReturnTrampoline
-GetEffectiveSkillLevel_Original ENDP
-
-; Forces the code which displays skill values in the skills menu to show the
-; true skill level instead of the damaged value by calling the OG function.
-DisplayTrueSkillLevel_Hook PROC PUBLIC
-    call GetEffectiveSkillLevel_Original ; Replacing a call, no need to save.
-    cvttss2si ecx, xmm0
-    jmp DisplayTrueSkillLevel_ReturnTrampoline
-DisplayTrueSkillLevel_Hook ENDP
 
 ; Modifies the rest level of legendarying a skill depending on the user
 ; settings and the base level in xmm0.
