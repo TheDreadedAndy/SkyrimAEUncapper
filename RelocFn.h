@@ -11,9 +11,9 @@
 #include "GameSettings.h"
 #include "GameAPI.h"
 
-PlayerCharacter *GetPlayer(void);
 Setting *GetGameSetting(const char *var);
-UInt16 GetLevel(void *actor);
+UInt16 GetPlayerLevel(void);
+void *GetPlayerActorValueOwner(void);
 float GetBaseActorValue(void *actor, UInt32 skill_id);
 
 #endif /* __SKYRIM_UNCAPPER_AE_RELOC_FN_H__ */

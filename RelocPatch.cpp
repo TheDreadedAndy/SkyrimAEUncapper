@@ -16,6 +16,13 @@
  * converted each one to an address-independence ID. Additionally, a new
  * signature for GetEffectiveSkillLevel() was found and DisplayTrueSkillLevel
  * was added.
+ * 
+ * Note that we do not allow non-portable structures to leave this file. That
+ * is to say, if a structure is not independent between the versions of AE,
+ * then it must either be opaque or contained within this file. This means we
+ * never return a pointer to the player class, as that structure is not
+ * version independent. Additionally, note that we let the game handle these
+ * structure differences whenever possible, which it isn't always.
  */
 
 #include "RelocFn.h"
@@ -27,6 +34,7 @@
 #include "GameSettings.h"
 #include "BranchTrampoline.h"
 #include "SafeWrite.h"
+#include "skse_version.h"
 #include "addr_lib/versionlibdb.h"
 
 #include "Hook_Skill.h"
@@ -71,6 +79,35 @@ struct HookType {
                 break;
             default:
                 HALT("Cannot get the size of an invalid hook type.");
+        }
+
+        return ret;
+    }
+
+    /// @brief Gets the allocation size of the hook in the branch trampoline.
+    static size_t
+    AllocSize(
+        t type
+    ) {
+        size_t ret = 0;
+
+        switch (type) {
+            case None:
+            case Nop:
+            case DirectCall:
+            case DirectJump:
+                ret = 0;
+                break;
+            case Jump5:
+            case Call5:
+                ret = 14;
+                break;
+            case Jump6:
+            case Call6:
+                ret = 8;
+                break;
+            default:
+                HALT("Cannot get the trampoline size of an invalid hook type");
         }
 
         return ret;
@@ -168,6 +205,7 @@ struct CodeSignature {
 ///@{
 extern "C" {
     uintptr_t ImprovePlayerSkillPoints_ReturnTrampoline;
+    uintptr_t ModifyPerkPool_ReturnTrampoline;
     uintptr_t ImproveAttributeWhenLevelUp_ReturnTrampoline;
     uintptr_t GetEffectiveSkillLevel_ReturnTrampoline;
     uintptr_t DisplayTrueSkillLevel_ReturnTrampoline;
@@ -371,9 +409,9 @@ static const CodeSignature kModifyPerkPool_PatchSig(
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(ModifyPerkPool_Wrapper),
     /* id */         52538,
-    /* patch_size */ 7,
-    /* trampoline */ nullptr,
-    /* offset */     0x62
+    /* patch_size */ 9,
+    /* trampoline */ &ModifyPerkPool_ReturnTrampoline,
+    /* offset */     0x70
 );
 
 /**
@@ -446,19 +484,19 @@ static const CodeSignature kCheckConditionForLegendarySkill_PatchSig(
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(CheckConditionForLegendarySkill_Wrapper),
     /* id */         52520,
-    /* patch_size */ 0x13,
+    /* patch_size */ 10,
     /* trampoline */ &CheckConditionForLegendarySkill_ReturnTrampoline,
-    /* offset */     0x14e
+    /* offset */     0x157
 );
 
 /**
  * @brief Hooks into the legendary button display code to allow it to be hidden.
  *
  * The assembly for this hook is as follows:
- * 48 8b 0d 2e d4 6b 02 	mov    0x26bd42e(%rip),%rcx        # 0x142fc1b78
- * 48 81 c1 b8 00 00 00 	add    $0xb8,%rcx
+ * 48 8b 0d 2e d4 6b 02 	mov    0x26bd42e(%rip),%rcx        # 0x142fc1b78 (player)
+ * 48 81 c1 b8 00 00 00 	add    $0xb8,%rcx <- Player actor state
  * 48 8b 01             	mov    (%rcx),%rax
- * 41 8b d7             	mov    %r15d,%edx
+ * 41 8b d7             	mov    %r15d,%edx <- Skill ID.
  * ff 50 18             	callq  *0x18(%rax)
  * 0f 2f 05 bf 57 d1 00 	comiss 0xd157bf(%rip),%xmm0        # 0x141619f20
  * 72 6b                	jb     0x1409047ce
@@ -471,15 +509,16 @@ static const CodeSignature kHideLegendaryButton_PatchSig(
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(HideLegendaryButton_Wrapper),
     /* id */         52527,
-    /* patch_size */ 0x1e,
+    /* patch_size */ 10,
     /* trampoline */ &HideLegendaryButton_ReturnTrampoline,
-    /* offset */     0x153
+    /* offset */     0x167
 );
 
 /**
  * @brief Lists all the code signatures to be resolved/applied
  *        by ApplyGamePatches().
  */
+///@{
 static const CodeSignature *const kGameSignatures[] = {
     &kThePlayer_ObjectSig,
     &kGameSettingCollection_ObjectSig,
@@ -503,74 +542,40 @@ static const CodeSignature *const kGameSignatures[] = {
     &kCheckConditionForLegendarySkill_PatchSig,
     &kHideLegendaryButton_PatchSig,
 };
+static const size_t kNumSigs = sizeof(kGameSignatures) / sizeof(void*);
+///@}
 
 /// @brief The opcode for an x86 NOP.
 static const uint8_t kNop = 0x90;
 
-/**
- * @brief Gets a pointer to the player object.
- */
-PlayerCharacter *
-GetPlayer() {
-    ASSERT(playerObject);
-    ASSERT(*playerObject);
-    return *playerObject;
-}
+/// @brief The running version of skyrim.
+static unsigned int runningSkyrimVersion;
 
 /**
- * @brief Gets a pointer to the game settings object.
+ * @brief Locates all the signatures necessary for this plugin, and calculates
+ *        the needed size of the branch trampoline buffer.
+ * @param real_addrs A list of found address signatures, in the same order as
+ *                   kGameSignatures.
+ * @return The size of the buffer on success, or a negative integer on failure.
  */
-Setting *
-GetGameSetting(
-    const char *var
+static ptrdiff_t
+LocateSignatures(
+    uintptr_t real_addrs[kNumSigs]
 ) {
-    ASSERT(gameSettings);
-    ASSERT(*gameSettings);
-    ASSERT(GetGameSetting_Entry);
-    return GetGameSetting_Entry(*gameSettings, var);
-}
-
-/**
- * @brief Gets the base value of the attribute for the given actor.
- * @param actor The actor to get the base value of.
- * @param skill_id The ID of the skill to get the base level of.
- */
-float
-GetBaseActorValue(
-    void *actor,
-    UInt32 skill_id
-) {
-    ASSERT(GetBaseActorValue_Entry);
-    return GetBaseActorValue_Entry(actor, skill_id);
-}
-
-/**
- * @brief Gets the level of the given actor.
- * @param actor The actor to get the level of.
- */
-UInt16
-GetLevel(
-    void *actor
-) {
-    ASSERT(GetLevel_Entry);
-    return GetLevel_Entry(actor);
-}
-
-/**
- * @brief Applies all of this plugins patches to the skyrim AE binary.
- */
-void
-ApplyGamePatches() {
-    const size_t kNumSigs = sizeof(kGameSignatures) / sizeof(void*);
-
-    _MESSAGE("Applying game patches...");
+    _MESSAGE("Attempting to locate signatures.");
 
     auto db = VersionDb();
     db.Load();
 
+    // Attempt to find all the requested signatures.
+    int success = 0;
+    size_t branch_alloc_size = 0;
     for (size_t i = 0; i < kNumSigs; i++) {
         auto sig = kGameSignatures[i];
         unsigned long long id = sig->id;
+
+        // Update the branch allocation size.
+        branch_alloc_size += HookType::AllocSize(sig->hook_type);
 
 #ifdef _DEBUG
         if (sig->known_offset) {
@@ -578,24 +583,58 @@ ApplyGamePatches() {
         }
 #endif
 
+        // Find the offset.
         void *addr = db.FindAddressById(id);
-        ASSERT(addr);
-        uintptr_t real_address = reinterpret_cast<uintptr_t>(addr) + sig->offset;
+        if (addr) {
+            real_addrs[i] = reinterpret_cast<uintptr_t>(addr) + sig->offset;
 
-        _MESSAGE(
-            "Signature %s ([ID: %zu] + 0x%zx) is at offset 0x%zx",
-            sig->name,
-            id,
-            sig->offset,
-            real_address - RelocationManager::s_baseAddr
-        );
+            _MESSAGE(
+                "Signature %s ([ID: %zu] + 0x%zx) is at offset 0x%zx",
+                sig->name,
+                id,
+                sig->offset,
+                real_addrs[i] - RelocationManager::s_baseAddr
+            );
+        } else {
+            success = -1;
+            _MESSAGE(
+                "Failed to find signature %s ([ID: %zu] + 0x%zu)",
+                sig->name,
+                id,
+                sig->offset
+            );
+        }
+    }
 
+    if (success < 0) {
+        _MESSAGE("Could not locate every signature.");
+        return -1;
+    }
+
+    _MESSAGE("Successfully located all signatures.");
+
+    return branch_alloc_size;
+}
+
+/**
+* @brief Applies the necessary game patches to the found real addresses.
+* @param The real addresses of the patches.
+*/
+static void
+PatchGameCode(
+    uintptr_t real_addrs[kNumSigs]
+) {
+    _MESSAGE("Applying game patches...");
+
+    for (size_t i = 0; i < kNumSigs; i++) {
+        uintptr_t real_address = real_addrs[i];
+        auto sig = kGameSignatures[i];
         size_t hook_size = HookType::Size(sig->hook_type);
         size_t return_address = real_address + hook_size;
 
         ASSERT(hook_size <= sig->patch_size);
         ASSERT(!(sig->hook) == ((sig->hook_type == HookType::None)
-                             || (sig->hook_type == HookType::Nop)));
+            || (sig->hook_type == HookType::Nop)));
 
         // Install the trampoline, if necessary.
         if (sig->return_trampoline) {
@@ -641,4 +680,99 @@ ApplyGamePatches() {
     }
 
     _MESSAGE("Finished applying game patches!");
+}
+
+/**
+ * @brief Gets a pointer to the game settings object.
+ */
+Setting *
+GetGameSetting(
+    const char *var
+) {
+    ASSERT(gameSettings);
+    ASSERT(*gameSettings);
+    ASSERT(GetGameSetting_Entry);
+    return GetGameSetting_Entry(*gameSettings, var);
+}
+
+/**
+ * @brief Gets the actor value owner field of the player.
+ *
+ * The location of this field is dependent on the running version of the game.
+ * As such, we must case on that.
+ *
+ * Versions before 1.6.629 store it at offset 0xB0. From that version on, it
+ * is at offset 0xB8.
+ * 
+ * @return The actor value owner of the player.
+ */
+void *
+GetPlayerActorValueOwner() {
+    ASSERT(playerObject);
+    ASSERT(*playerObject);
+
+    size_t avo_offset = (runningSkyrimVersion >= RUNTIME_VERSION_1_6_629)
+                      ? 0xB8 : 0xB0;
+    return reinterpret_cast<char*>(*playerObject) + avo_offset;
+}
+
+/**
+* @brief Gets the level of the player.
+*/
+UInt16
+GetPlayerLevel() {
+    ASSERT(playerObject);
+    ASSERT(*playerObject);
+    ASSERT(GetLevel_Entry);
+    return GetLevel_Entry(*playerObject);
+}
+
+/**
+ * @brief Gets the base value of the attribute for the given actor.
+ * @param actor The actor to get the base value of.
+ * @param skill_id The ID of the skill to get the base level of.
+ */
+float
+GetBaseActorValue(
+    void *actor,
+    UInt32 skill_id
+) {
+    ASSERT(GetBaseActorValue_Entry);
+    return GetBaseActorValue_Entry(actor, skill_id);
+}
+
+/**
+ * @brief Applies all of this plugins patches to the skyrim AE binary.
+ * @param img_base The base of the skyrim module.
+ * @param runtime_version The running version of skyrim.
+ * @return 0 if the patches could be applied, a negative integer otherwise.
+ */
+int
+ApplyGamePatches(
+    void *img_base,
+    unsigned int runtime_version
+) {
+    ASSERT(runtime_version >= RUNTIME_VERSION_1_6_317); // AE.
+    runningSkyrimVersion = runtime_version;
+
+    uintptr_t real_addrs[kNumSigs];
+
+    size_t alloc_size = LocateSignatures(real_addrs);
+    if (alloc_size < 0) {
+        return -1;
+    }
+
+    _MESSAGE(
+        "Creating a branch trampoline buffer with %zu bytes of space...",
+        alloc_size
+    );
+    if (!g_branchTrampoline.Create(alloc_size, img_base)) {
+        _MESSAGE("Failed to allocate branch trampoline.");
+        return -1;
+    }
+    _MESSAGE("Done!");
+
+    PatchGameCode(real_addrs);
+    
+    return 0;
 }

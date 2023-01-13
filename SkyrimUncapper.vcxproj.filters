@@ -64,7 +64,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="HookWrappers.S">
+    <MASM Include="HookWrappers.asm">
       <Filter>Source Files</Filter>
     </MASM>
   </ItemGroup>

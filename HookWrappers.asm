@@ -18,6 +18,7 @@ EXTERN DisplayTrueSkillLevel_ReturnTrampoline:PTR
 
 EXTERN ImprovePlayerSkillPoints_ReturnTrampoline:PTR
 EXTERN ModifyPerkPool_Hook:PROC
+EXTERN ModifyPerkPool_ReturnTrampoline:PTR
 EXTERN ImproveLevelExpBySkillLevel_Hook:PROC
 EXTERN ImproveAttributeWhenLevelUp_ReturnTrampoline:PTR
 
@@ -115,15 +116,18 @@ ImprovePlayerSkillPoints_Original PROC PUBLIC
     jmp ImprovePlayerSkillPoints_ReturnTrampoline
 ImprovePlayerSkillPoints_Original ENDP
 
-; This function is tailed into by our hook, so we dont need to worry about
-; register saving.
+; Injected after the current number of perk points is read. Returns to the
+; instruction where the new perk count is written back. We do this to avoid
+; non-portable (across skyrim versions) accesses to the player class.
 ModifyPerkPool_Wrapper PROC PUBLIC
-    mov rcx, rdi ; AE changed rbx to rdi.
+    BEGIN_INJECTED_CALL
+    mov rdx, rdi ; Get modification count.
     sub rsp, 20h
     call ModifyPerkPool_Hook
-    add rsp, 40h ; We reimplement the original return code as well here.
-    pop rdi
-    ret
+    add rsp, 20h
+    END_INJECTED_CALL
+    mov cl, al ; We'll return to an instruction that'll store this in the player
+    jmp ModifyPerkPool_ReturnTrampoline
 ModifyPerkPool_Wrapper ENDP
 
 ; Passes the EXP gain to our function for further modification.
@@ -157,7 +161,7 @@ ImproveLevelExpBySkillLevel_Wrapper ENDP
 ; function by reimplementing the code we replaced and then jumping to
 ; the address immediately after our hook.
 ImproveAttributeWhenLevelUp_Original PROC PUBLIC
-    push rdi
+    push rdi ; REX not encoded, but its a nop.
     sub rsp, 30h
     jmp ImproveAttributeWhenLevelUp_ReturnTrampoline
 ImproveAttributeWhenLevelUp_Original ENDP
@@ -177,8 +181,6 @@ LegendaryResetSkillLevel_Wrapper ENDP
 ; with a call to our own condition check.
 ; Since we are overwriting another fn call, we dont need to reg save.
 CheckConditionForLegendarySkill_Wrapper PROC PUBLIC
-    mov edx, eax
-    lea rcx, [rdi + 0b8h] ; FIXME: Offest
     call CheckConditionForLegendarySkill_Hook
     cmp al, 1
     jmp CheckConditionForLegendarySkill_ReturnTrampoline
@@ -188,7 +190,6 @@ CheckConditionForLegendarySkill_Wrapper ENDP
 ; We are overwriting another function call here, so we dont need to save
 ; the register state.
 HideLegendaryButton_Wrapper PROC PUBLIC
-    mov ecx, edx
     call HideLegendaryButton_Hook
     cmp al, 1
     jmp HideLegendaryButton_ReturnTrampoline

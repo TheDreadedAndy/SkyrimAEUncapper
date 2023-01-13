@@ -38,7 +38,7 @@
     <ClInclude Include="simpleini\SimpleIni.h" />
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="HookWrappers.S">
+    <MASM Include="HookWrappers.asm">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
       <FileType>Document</FileType>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

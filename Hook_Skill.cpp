@@ -20,8 +20,6 @@
 #include "RelocFn.h"
 #include "Compare.h"
 
-using LevelData = PlayerSkills::StatData::LevelData;
-
 /**
  * @brief Gets the base level of a skill on the player character.
  *
@@ -35,16 +33,8 @@ GetPlayerBaseSkillLevel(
     unsigned int skill_id
 ) {
     return static_cast<unsigned int>(
-        GetBaseActorValue(reinterpret_cast<char*>(GetPlayer()) + 0xB8, skill_id) // FIXME: Relocatable offset.
+        GetBaseActorValue(GetPlayerActorValueOwner(), skill_id)
     );
-}
-
-/**
- * @brief Gets the current level of the player.
- */
-static unsigned int
-GetPlayerLevel() {
-    return GetLevel(GetPlayer());
 }
 
 /**
@@ -140,21 +130,19 @@ ImprovePlayerSkillPoints_Hook(
 
 /**
  * @brief Adjusts the number of perks the player receives at a level-up.
+ * @param points The number of perk points the player has.
  * @param count The original number of points the perk pool was being
  *        adjusted by.
+ * @return The new number of perk points the player has.
  */
-extern "C" void
+extern "C" UInt8
 ModifyPerkPool_Hook(
+    UInt8 points,
     SInt8 count
 ) {
-    UInt8 *points = &((GetPlayer())->numPerkPoints); // FIXME: Needs to be relocatable.
-    if (count > 0) { // Add perk points
-        UInt32 sum = settings.GetPerkDelta(GetPlayerLevel()) + *points;
-        *points = (sum > 0xFF) ? 0xFF : static_cast<UInt8>(sum);
-    } else { // Remove perk points
-        SInt32 sum = *points + count;
-        *points = (sum < 0) ? 0 : static_cast<UInt8>(sum);
-    }
+    int delta = MIN(0xFF, settings.GetPerkDelta(GetPlayerLevel()));
+    int res = points + (count > 0) ? delta : count;
+    return static_cast<UInt8>(MAX(0, MIN(0xFF, res)));
 }
 
 /**
@@ -185,7 +173,7 @@ ImproveLevelExpBySkillLevel_Hook(
  */
 UInt64
 ImproveAttributeWhenLevelUp_Hook(
-    void* unk0,
+    void *unk0,
     UInt8 unk1
 ) {
     Setting *iAVDhmsLevelUp = GetGameSetting("iAVDhmsLevelUp");
@@ -194,6 +182,8 @@ ImproveAttributeWhenLevelUp_Hook(
     ASSERT(iAVDhmsLevelUp);
     ASSERT(fLevelUpCarryWeightMod);
 
+    // Not sure what this is offsetting into, but its consistent
+    // between all SE versions.
     Settings::player_attr_e choice =
         *reinterpret_cast<Settings::player_attr_e*>(static_cast<char*>(unk0) + 0x18);
 
@@ -227,11 +217,10 @@ LegendaryResetSkillLevel_Hook(
  */
 extern "C" bool
 CheckConditionForLegendarySkill_Hook(
-    void* av_owner,
+    void *player_actor,
     UInt32 skill_id
 ) {
-    (void)av_owner; // Always the player.
-    float skill_level = GetPlayerBaseSkillLevel(skill_id);
+    float skill_level = GetBaseActorValue(player_actor, skill_id);
     return settings.IsLegendaryAvailable(skill_id);
 }
 
@@ -241,8 +230,9 @@ CheckConditionForLegendarySkill_Hook(
  */
 extern "C" bool
 HideLegendaryButton_Hook(
+    void *player_actor,
     UInt32 skill_id
 ) {
-    float skill_level = GetPlayerBaseSkillLevel(skill_id);
+    float skill_level = GetBaseActorValue(player_actor, skill_id);
     return settings.IsLegendaryButtonVisible(skill_level);
 }

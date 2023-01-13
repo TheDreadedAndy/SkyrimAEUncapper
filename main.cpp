@@ -54,16 +54,9 @@ static bool SkyrimUncapper_Initialize(const SKSEInterface* skse)
     isInit = true;
 
     gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Skyrim Special Edition\\SKSE\\SkyrimUncapper.log");
-    void* imgBase = GetModuleHandle(NULL);
+    void *img_base = GetModuleHandle(NULL);
     _MESSAGE("Compiled skse:0x%08X runtime:0x%08X. Now skse:0x%08X runtime:0x%08X", (unsigned)PACKED_SKSE_VERSION, (unsigned)CURRENT_RELEASE_RUNTIME, (unsigned)skse->skseVersion, (unsigned)skse->runtimeVersion);
-    _MESSAGE("imagebase = %016I64X", imgBase);
-
-    // We only have a few hooks, so a small trampoline buffer is fine.
-    // This will need to be increased if many more hooks are added (> ~15).
-    if (!g_branchTrampoline.Create(128, imgBase)) {
-        _ERROR("couldn't create branch trampoline. this is fatal. skipping remainder of init process.");
-        return false;
-    }
+    _MESSAGE("imagebase = %016I64X", img_base);
 
     std::string path;
     if (!GetDllDirWithSlash(path)) {
@@ -75,7 +68,11 @@ static bool SkyrimUncapper_Initialize(const SKSEInterface* skse)
         return false;
     }
 
-    ApplyGamePatches();
+    if (ApplyGamePatches(img_base, skse->runtimeVersion) < 0) {
+        _ERROR("Failed to apply game patches. See log for details.");
+        return false;
+    }
+
     _MESSAGE("Init complete");
     return true;
 }
