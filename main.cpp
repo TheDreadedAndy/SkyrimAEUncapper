@@ -53,9 +53,19 @@ static bool SkyrimUncapper_Initialize(const SKSEInterface* skse)
     }
     isInit = true;
 
-    gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Skyrim Special Edition\\SKSE\\SkyrimUncapper.log");
+    gLog.OpenRelative(
+        CSIDL_MYDOCUMENTS,
+        "\\My Games\\Skyrim Special Edition\\SKSE\\SkyrimUncapper.log"
+    );
     void *img_base = GetModuleHandle(NULL);
-    _MESSAGE("Compiled skse:0x%08X runtime:0x%08X. Now skse:0x%08X runtime:0x%08X", (unsigned)PACKED_SKSE_VERSION, (unsigned)CURRENT_RELEASE_RUNTIME, (unsigned)skse->skseVersion, (unsigned)skse->runtimeVersion);
+    _MESSAGE(
+        "Compiled skse:0x%08X runtime:0x%08X. "
+        "Running skse:0x%08X runtime:0x%08X",
+        (unsigned int) PACKED_SKSE_VERSION,
+        (unsigned int) CURRENT_RELEASE_RUNTIME,
+        (unsigned int) skse->skseVersion, 
+        (unsigned int) skse->runtimeVersion
+    );
     _MESSAGE("imagebase = %016I64X", img_base);
 
     std::string path;
@@ -84,8 +94,8 @@ extern "C" {
         "SkyrimUncapperAE",
         "Andrew Spaulding (Kasplat)", // name
         "andyespaulding@gmail.com", // support@example.com
-        0, // We use game structures, so we're incompatible with pre-629.
-        SKSEPluginVersionData::kVersionIndependent_AddressLibraryPostAE | SKSEPluginVersionData::kVersionIndependent_StructsPost629,
+        SKSEPluginVersionData::kVersionIndependentEx_NoStructUse, // We manually check our offsets against the game version
+        SKSEPluginVersionData::kVersionIndependent_AddressLibraryPostAE,
         {0}, // works with any version of the script extender. you probably do not need to put anything here
         0 // minimum version of the script extender required, compared against PACKED_SKSE_VERSION
     };

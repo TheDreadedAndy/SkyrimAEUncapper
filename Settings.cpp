@@ -51,23 +51,23 @@ do {\
  */
 #define SaveFloatLevelListSection(INI, LIST, SECTION, COMMENT)\
 do {\
-    LeveledSetting<float>::LevelItem level;\
-    for (size_t i = 0; i < (LIST).Size(); i++) {\
-        (LIST).GetItem(i, level);\
-        char _key[32];\
-        ASSERT(sprintf_s(_key, "%d", level.level) > 0);\
-        ASSERT((INI).SetDoubleValue(SECTION, _key, level.item, (!i) ? (COMMENT) : NULL) >= 0);\
+    LeveledSetting<float>::LevelItem _level;\
+    for (size_t _i = 0; _i < (LIST).Size(); _i++) {\
+        (LIST).GetItem(_i, _level);\
+        char _key[16];\
+        ASSERT(sprintf_s(_key, "%d", _level.level) > 0);\
+        ASSERT((INI).SetDoubleValue(SECTION, _key, _level.item, (!_i) ? (COMMENT) : NULL) >= 0);\
     }\
 } while (0)
 
 #define SaveIntLevelListSection(INI, LIST, SECTION, COMMENT)\
 do {\
-    LeveledSetting<UInt32>::LevelItem level;\
-    for (size_t i = 0; i < (LIST).Size(); i++) {\
-        (LIST).GetItem(i, level);\
-        char _key[32];\
-        ASSERT(sprintf_s(_key, "%d", level.level) > 0);\
-        ASSERT((INI).SetLongValue(SECTION, _key, level.item, (!i) ? (COMMENT) : NULL) >= 0);\
+    LeveledSetting<UInt32>::LevelItem _level;\
+    for (size_t _i = 0; _i < (LIST).Size(); _i++) {\
+        (LIST).GetItem(_i, _level);\
+        char _key[16];\
+        ASSERT(sprintf_s(_key, "%d", _level.level) > 0);\
+        ASSERT((INI).SetLongValue(SECTION, _key, _level.item, (!_i) ? (COMMENT) : NULL) >= 0);\
     }\
 } while (0)
 

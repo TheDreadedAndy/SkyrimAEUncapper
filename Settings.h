@@ -70,6 +70,7 @@ class LeveledSetting {
         }
 
         // Insert before the final hi element.
+        ASSERT(hi <= list.size());
         list.insert(list.begin() + hi, { level, item });
     }
 
