@@ -12,13 +12,13 @@
 #ifndef __SKYRIM_UNCAPPER_AE_SETTINGS_H__
 #define __SKYRIM_UNCAPPER_AE_SETTINGS_H__
 
-#include <map>
 #include <string>
-#include <algorithm>
 #include <vector>
 
 #include "common/IErrors.h"
 #include "simpleini/SimpleIni.h"
+
+#include "Compare.h"
 
 // HOTFIX: Changing back to 4 (from 5) until memory corruption can be tracked
 // down.
@@ -126,12 +126,12 @@ class LeveledSetting {
     ) {
         ASSERT(list.size() > 0);
 
-        size_t plevel = 0;
         T pacc = 0, acc = 0;
         for (size_t i = 0; (i < list.size()) && (list[i].level <= level); i++) {
-            // Update the accumulation.
-            unsigned int this_level = (level < list[i].level) ? level : list[i].level;
-            acc += (this_level - plevel) * list[i].item;
+            // Update the accumulation. Note the exclusive upper bound on level.
+            unsigned int bound = ((i + 1) < list.size()) ? list[i + 1].level : level + 1;
+            unsigned int this_level = MIN(level + 1, bound);
+            acc += (this_level - list[i].level) * list[i].item;
 
             // If this is the last iteration, get the previous accumulation.
             if (((i + 1) >= list.size()) || (list[i].level > level)) {

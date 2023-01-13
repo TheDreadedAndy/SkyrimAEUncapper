@@ -120,7 +120,7 @@ Settings::SaveConfig(
 ) {
     const size_t skill_buf_size = 128;
     char skill_buf[skill_buf_size];
-    
+
     _MESSAGE("Saving config file...");
 
     // Clear the INI file; we will rewrite it.
@@ -130,8 +130,8 @@ Settings::SaveConfig(
     settingsGeneral.version = CONFIG_VERSION;
     ASSERT(ini.SetLongValue(
         "General",
-        "Version", 
-        CONFIG_VERSION, 
+        "Version",
+        CONFIG_VERSION,
         "# Configuration file version, DO NOT CHANGE"
     ) >= 0);
     ASSERT(ini.SetValue("General", "Author", "Kassent", NULL) >= 0);

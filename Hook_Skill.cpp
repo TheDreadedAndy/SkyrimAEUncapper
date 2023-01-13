@@ -141,7 +141,7 @@ ModifyPerkPool_Hook(
     SInt8 count
 ) {
     int delta = MIN(0xFF, settings.GetPerkDelta(GetPlayerLevel()));
-    int res = points + (count > 0) ? delta : count;
+    int res = points + ((count > 0) ? delta : count);
     return static_cast<UInt8>(MAX(0, MIN(0xFF, res)));
 }
 
