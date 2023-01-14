@@ -63,14 +63,14 @@ ReadIniValue<bool>(
     return ini.GetBoolValue(section, key, default_val);
 }
 
-template <> inline const char *
-ReadIniValue<const char *>(
+template <> inline std::string
+ReadIniValue<std::string>(
     CSimpleIniA &ini,
     const char *section,
     const char *key,
-    const char *default_val
+    std::string default_val
 ) {
-    return ini.GetValue(section, key, default_val);
+    return std::string(ini.GetValue(section, key, default_val.c_str()));
 }
 ///@}
 
@@ -120,14 +120,14 @@ SaveIniValue<bool>(
 }
 
 template <> inline void
-SaveIniValue<const char *>(
+SaveIniValue<std::string>(
     CSimpleIniA &ini,
     const char *section,
     const char *key,
-    const char *val,
+    std::string val,
     const char *comment
 ) {
-    ASSERT(ini.SetValue(section, key, val, comment));
+    ASSERT(ini.SetValue(section, key, val.c_str(), comment));
 }
 ///@}
 

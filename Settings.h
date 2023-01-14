@@ -171,7 +171,7 @@ class LeveledSetting {
         ASSERT(section == nullptr);
 
         char buf[kBufSize];
-        auto res = sprintf_s(buf, "%s%c%s", sec, GetPrefix<T>(), subsec);
+        auto res = sprintf_s(buf, "%s%s", sec, subsec);
         ASSERT((0 < res) && (res < kBufSize));
         InternalReadConfig(ini, buf, val);
     }
@@ -213,7 +213,7 @@ class LeveledSetting {
         ASSERT(section == nullptr);
 
         char buf[kBufSize];
-        auto res = sprintf_s(buf, "%s%c%s", sec, GetPrefix<T>(), subsec);
+        auto res = sprintf_s(buf, "%s%s", sec, subsec);
         ASSERT((0 < res) && (res < kBufSize));
         InternalSaveConfig(ini, buf, comment);
     }
@@ -279,7 +279,7 @@ class LeveledSetting {
      * This function is intended to be used for the calculation of partial
      * perk point awards.
      *
-     * @param level The level to calculate the delta to.
+     * @param level The new level of the player.
      * @return The increment from the previous level.
      */
     unsigned int
@@ -430,7 +430,7 @@ class Settings {
 
       public:
         SectionField<unsigned int> version;
-        SectionField<const char *> author;
+        SectionField<std::string> author;
 
         GeneralSettings(
         ) : version("Version", 0),
@@ -581,7 +581,7 @@ class Settings {
     Settings(
     ) : general(),
         skillCaps("SkillCaps", 100),
-        skillFormulaCaps("SkillFormulatCaps", 100),
+        skillFormulaCaps("SkillFormulaCaps", 100),
         perksAtLevelUp("PerksAtLevelUp", 1.00),
         skillExpGainMults("SkillExpGainMults", 1.00),
         skillExpGainMultsWithPCLevel("SkillExpGainMults\\CharacterLevel\\", 1.00),

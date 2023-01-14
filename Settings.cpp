@@ -8,6 +8,7 @@
  */
 
 #include <cstdio>
+#include <cstdlib>
 
 #include "Settings.h"
 #include "Compare.h"

@@ -64,6 +64,6 @@ const char *
 SkillSlot::Str(
     t slot
 ) {
-    ASSERT(IsSkill(slot));
+    ASSERT(slot < kCount);
     return kSkillNames[slot];
 }
