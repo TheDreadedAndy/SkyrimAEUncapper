@@ -7,7 +7,7 @@
  *
  * Rampaged through by Kasplat to change the interface/encapsulation to be
  * more clear.
- */
+*/
 
 #ifndef __SKYRIM_UNCAPPER_AE_SETTINGS_H__
 #define __SKYRIM_UNCAPPER_AE_SETTINGS_H__
@@ -15,28 +15,24 @@
 #include <string>
 #include <vector>
 
-#include "common/IErrors.h"
-#include "simpleini/SimpleIni.h"
-
 #include "Compare.h"
+#include "SkillSlot.h"
+#include "Ini.h"
 
-// HOTFIX: Changing back to 4 (from 5) until memory corruption can be tracked
-// down.
-#define CONFIG_VERSION 4
+#define CONFIG_VERSION 6
 
 template<typename T>
 class LeveledSetting {
-  public:
+  private:
     struct LevelItem {
         unsigned int level;
         T item;
     };
 
-  private:
-    std::vector<LevelItem> list;
+    /// @brief The buffer size used to concat the section and subsection.
+    const size_t kBufSize = 256;
 
-  public:
-    LeveledSetting() : list(0) {}
+    std::vector<LevelItem> list;
 
     /**
      * @brief Adds an item to the leveled setting list.
@@ -72,6 +68,170 @@ class LeveledSetting {
         // Insert before the final hi element.
         ASSERT(hi <= list.size());
         list.insert(list.begin() + hi, { level, item });
+    }
+
+    /**
+     * @brief Reads in the configuration from the given INI file.
+     * @param ini The INI to read the config from.
+     * @param sec The section to read in the INI.
+     * @param val The default value if none is found.
+     */
+    void
+    InternalReadConfig(
+        CSimpleIniA &ini,
+        const char *sec,
+        T val
+    ) {
+        CSimpleIniA::TNamesDepend keys;
+
+        list.clear();
+        if (ini.GetAllKeys(buf, keys)) {
+            for (auto& element : keys) {\
+                Add(
+                    atoi(element.pItem),
+                    ReadIniValue(ini, sec, element.pItem, val)
+                );
+            }
+        }
+
+        Add(0, val);
+        list.shrink_to_fit();
+    }
+
+    /**
+     * @brief Saves the content of the list to the given INI file.
+     * @param ini The INI file to write to.
+     * @param sec The section to write to.
+     * @param comment The comment to write to the first element.
+     */
+    void
+    InternalSaveConfig(
+        CSimpleIniA &ini,
+        const char *sec
+        const char *comment
+    ) {
+        char key[16];
+        for (size_t i = 0; i < list.size(); i++) {
+            ASSERT(sprintf_s(key, "%d", list[i].level) > 0);\
+            SaveIniValue(
+                ini,
+                sec,
+                key,
+                list[i].item,
+                (!i) ? (comment) : NULL
+            );
+        }
+    }
+
+  public:
+    /// @brief Default constructor. Must give args to ReadConfig()/SaveConfig().
+    LeveledSetting(
+    ) : list(0),
+        section(nullptr),
+        default_val(0)
+    {}
+
+    /**
+     * @brief Constructs a leveled setting with the given section and default.
+     *
+     * If this initializer is used, then it is illegal to call ReadConfig()
+     * and SaveConfig() with more than the ini argument.
+     *
+     * @param section The section to read/write the setting to.
+     * @param default The default value for the setting.
+     */
+    LeveledSetting(
+        const char *section,
+        T default_val
+    ) : list(0),
+        section(section),
+        default_val(default_val)
+    {}
+
+    /**
+     * @brief Reads in the configuration from the given INI file.
+     *
+     * It is illegal to call this function if the list was initialized with
+     * the non-default constructor.
+     *
+     * @param ini The ini file to read the configuration from.
+     * @param sec The section to read the configuration from.
+     * @param subsec The subsection to read the config from.
+     * @param val A default value if no config is found.
+     */
+    void
+    ReadConfig(
+        CSimpleIniA &ini,
+        const char *sec,
+        const char *subsec,
+        T val
+    ) {
+        ASSERT(section == nullptr);
+
+        char buf[kBufSize];
+        auto res = sprintf_s(buf, "%s%c%s", sec, GetPrefix<T>(), subsec);
+        ASSERT((0 < res) && (res < kBufSize));
+        InternalReadConfig(ini, buf, val);
+    }
+
+    /**
+     * @brief Reads in the configuration from the given INI file.
+     *
+     * It is illegal to call this function if the list was initialized with
+     * the default constuctor.
+     *
+     * @param ini The ini file to read the configuration from.
+     */
+    void
+    ReadConfig(
+        CSimpleIniA &ini
+    ) {
+        ASSERT(section);
+        InternalReadConfig(ini, section, default_val);
+    }
+
+    /**
+     * @brief Saves the content of the list to the given INI file.
+     *
+     * It is illegal to call this function if the list was initialized with
+     * the non-default constructor.
+     *
+     * @param ini The INI file to save the content to.
+     * @param sec The section to save the configuration to.
+     * @param subsec The subsection to save the configuration to.
+     * @param comment The comment to add to the top of the section.
+     */
+    void
+    SaveConfig(
+        CSimpleIniA &ini,
+        const char *sec,
+        const char *subsec,
+        const char *comment
+    ) {
+        ASSERT(section == nullptr);
+
+        char buf[kBufSize];
+        auto res = sprintf_s(buf, "%s%c%s", section, GetPrefix<T>(), subsection);
+        ASSERT((0 < res) && (res < kBufSize));
+        InternalSaveConfig(ini, buf, comment);
+    }
+
+    /**
+     * @brief Saves the content of the list to the given INI file.
+     *
+     * It is illegal to call this function if the list was initialized with
+     * the default constructor.
+     *
+     * @param ini The INI file to save the content to.
+     * @param comment The comment to add to the top of the section.
+     */
+    void
+    SaveConfig(
+        CSimpleIniA &ini,
+        const char *comment
+    ) {
+        ASSERT(section);
+        InternalSaveConfig(ini, section, comment);
     }
 
     /**
@@ -141,89 +301,181 @@ class LeveledSetting {
 
         return static_cast<unsigned int>(acc) - static_cast<unsigned int>(pacc);
     }
+};
+
+template <typename T>
+clase SkillSetting {
+  private:
+    /// @brief Size of the prefixed skill field buffer.
+    const size_t buf_size = 32;
+
+    T val;
+
+  public:
+    SkillSetting() {}
 
     /**
-     * @brief Shrinks the underlying vector to fit its contents.
+     * @brief Gets the value contained by this skill setting.
      */
-    void
-    Finalize() {
-        list.shrink_to_fit();
+    inline T
+    Get() {
+        return val;
     }
 
     /**
-     * @brief Gets the number of level sections in the list.
-     */
-    size_t
-    Size() {
-        return list.size();
-    }
-
-    /**
-     * @brief Gets the LevelItem at the given index.
+     * @brief Reads in the config from the given ini file.
+     * @param ini The INI to read from.
+     * @param section The section to read from.
+     * @param field The field to read from.
+     * @param default_val The value to assume if the data is not available.
      */
     void
-    GetItem(
-        size_t i,
-        LevelItem &ret
+    ReadConfig(
+        CSimpleIniA &ini,
+        const char *section,
+        const char *field,
+        T default_val
     ) {
-        ASSERT(i < list.size());
-        ret = list[i];
+        char buf[kBufSize];
+        auto res = sprintf_s(buf, "%c%s", GetPrefix<T>(), field);
+        ASSERT((0 < res) && (res < kBufSize));
+        val = ReadIniValue(ini, section, buf, default_val);
+    }
+
+    /**
+     * @brief Saves the current value to the given INI file.
+     * @param ini The INI to save to.
+     * @param section The section to save to.
+     * @param field The field to write to.
+     * @param comment The comment to add to the field.
+     */
+    void
+    SaveConfig(
+        CSimpleIniA &ini,
+        const char *section,
+        const char *field,
+        const char *comment
+    ) {
+        char buf[kBufSize];
+        auto res = sprintf_s(buf, "%c%s", GetPrefix<T>(), field);
+        ASSERT((0 < res) && (res < kBufSize));
+        SaveIniValue(ini, section, buf, val, comment);
+    }
+}
+
+template <template<typename U> class T>
+class SkillSettingManager {
+  private:
+    const char *section;
+    T data[SkillSlot::kCount];
+    U default_val;
+
+  public:
+    SkillSetting(
+        const char *section,
+        U default_val
+    ) : section(section),
+        default_val(default_val)
+    {}
+
+    /**
+     * @brief Gets the setting for the given skill.
+     * @param The skill to get the setting for.
+     */
+    &T
+    Get(
+        SkillSlot::t skill
+    ) {
+        return &data[skill];
+    }
+
+    /**
+     * @brief Reads in the given configuration file.
+     * @param ini The ini file to read.
+     */
+    void
+    ReadConfig(
+        CSimpleIniA &ini
+    ) {
+        for (int i = 0; i < SkillSlot::kCount; i++) {
+            data[i].ReadConfig(ini, section, SkillSlot::Str(i), default_val);
+        }
+    }
+
+    /**
+     * @brief Writes out the configuration to the given INI file.
+     * @param ini The ini file to write the configuration to.
+     * @param comment The comment to write to the first element.
+     */
+    void
+    SaveConfig(
+        CSimpleIniA &ini
+    ) {
+        for (int i = 0; i < SkillSlot::kCount; i++) {
+            data[i].SaveConfig(ini, section, SkillSlot::Str(i), (!i) ? comment : NULL);
+        }
     }
 };
 
 class Settings {
   private:
-    /// @brief Offset from raw skill IDs to the skill enumeration values.
-    const unsigned int kSkillOffset = 6;
+    class GeneralSettings {
+      private:
+        const char *const kSection = "General";
 
-    /**
-     * @brief Encodes the skills in the order of their IDs.
-     *
-     * Note that we must subtract 6 from a skill ID to convert it to this enum.
-     * As such, the order of the values in this enumeration MUST NOT be changed.
-     */
-    typedef enum {
-        SKILL_ONEHANDED,
-        SKILL_TWOHANDED,
-        SKILL_MARKSMAN,
-        SKILL_BLOCK,
-        SKILL_SMITHING,
-        SKILL_HEAVYARMOR,
-        SKILL_LIGHTARMOR,
-        SKILL_PICKPOCKET,
-        SKILL_LOCKPICKING,
-        SKILL_SNEAK,
-        SKILL_ALCHEMY,
-        SKILL_SPEECHCRAFT,
-        SKILL_ALTERATION,
-        SKILL_CONJURATION,
-        SKILL_DESTRUCTION,
-        SKILL_ILLUSION,
-        SKILL_RESTORATION,
-        SKILL_ENCHANTING,
-        kSkillCount
-    } player_skill_e;
+      public:
+        SectionField<unsigned int> version;
+        SectionField<std::string> author;
 
-    /// @brief Used to convert a skill enum to a skill name.
-    const char *const kSkillNames[kSkillCount] = {
-        "OneHanded",
-        "TwoHanded",
-        "Marksman",
-        "Block",
-        "Smithing",
-        "HeavyArmor",
-        "LightArmor",
-        "Pickpocket",
-        "LockPicking",
-        "Sneak",
-        "Alchemy",
-        "SpeechCraft",
-        "Alteration",
-        "Conjuration",
-        "Destruction",
-        "Illusion",
-        "Restoration",
-        "Enchanting"
+        GeneralSettings(
+        ) : version("Version", 0),
+            author("Author", "Kassent")
+        {}
+
+        void ReadConfig(CSimpleIniA &ini);
+        void SaveConfig(CSimpleIniA &ini);
+    };
+
+    class LegendarySettings {
+      private:
+        /// @brief Field comments
+        ///@{
+        const char *const kKeepSkillLevelDesc =
+            "# This option determines whether the legendary feature will reset the "
+            "skill level. Set this option to true will make option "
+            "\"iSkillLevelAfterLegendary\" have no effect.";
+        const char *const kHideButtonDesc =
+            "# This option determines whether to hide the legendary button in "
+            "StatsMenu when you meet the requirements of legendary skills. "
+            "If you set \"iSkillLevelEnableLegendary\" to below 100, the legendary "
+            "button will not show up, but you can make skills legendary normally "
+            "by pressing SPACE.";
+        const char *const kSkillLevelEnableDesc =
+            "# This option determines the skill level required to make a skill "
+            "legendary.";
+        const char *const kSkillLevelAfterDesc =
+            "# This option determines the level of a skill after making this skill "
+            "legendary. Set this option to 0 will reset the skill level to default "
+            "level.";
+        ///@}
+
+        const char *const kSection = "LegendarySkill";
+
+      public:
+        SectionField<bool> keepSkillLevel;
+        SectionField<bool> hideButton;
+        SectionField<unsigned int> skillLevelEnable;
+        SectionField<unsigned int> skillLevelAfter;
+
+        LegendarySettings(
+        ) : keepSkillLevel("bLegendaryKeepSkillLevel", false),
+            hideButton("bHideLegendaryButton", true),
+            skillLevelEnable("iSkillLevelEnableLegendary", 100),
+            skillLevelAfter("iSkillLevelAfterLegendary", 0)
+        {}
+
+        void ReadConfig(CSimpleIniA &ini);
+        void SaveConfig(CSimpleIniA &ini);
     };
 
     /// @brief Desciptions for sections in the INI file.
@@ -285,61 +537,33 @@ class Settings {
         "# Set the number of carryweight gained at each stamina level up. "
         "If a specific level is not specified then the closest lower level "
         "setting is used.";
-    const char *const kLegendaryKeepSkillLevelDesc =
-        "# This option determines whether the legendary feature will reset the "
-        "skill level. Set this option to true will make option "
-        "\"iSkillLevelAfterLegendary\" have no effect.";
-    const char *const kHideLegendaryButtonDesc =
-        "# This option determines whether to hide the legendary button in "
-        "StatsMenu when you meet the requirements of legendary skills. "
-        "If you set \"iSkillLevelEnableLegendary\" to below 100, the legendary "
-        "button will not show up, but you can make skills legendary normally "
-        "by pressing SPACE.";
-    const char *const kSkillLevelEnableLegendaryDesc =
-        "# This option determines the skill level required to make a skill "
-        "legendary.";
-    const char *const kSkillLevelAfterLegendaryDesc =
-        "# This option determines the level of a skill after making this skill "
-        "legendary. Set this option to 0 will reset the skill level to default "
-        "level.";
     ///@}
 
-    void GetSkillStr(char *buf, size_t size, player_skill_e skill,
-                     const char *prefix);
-    player_skill_e GetSkillFromId(unsigned int skill_id);
     bool SaveConfig(CSimpleIniA &ini, const std::string &path);
 
-    unsigned int settingsSkillCaps[kSkillCount];
-    unsigned int settingsSkillFormulaCaps[kSkillCount];
+    GeneralSettings general;
 
-    LeveledSetting<float>  settingsPerksAtLevelUp;
+    SkillSettingManager<SkillSetting<unsigned int>> skillCaps;
+    SkillSettingManager<SkillSetting<unsigned int>> skillFormulaCaps;
 
-    float                  settingsSkillExpGainMults[kSkillCount];
-    LeveledSetting<float>  settingsSkillExpGainMultsWithSkills[kSkillCount];
-    LeveledSetting<float>  settingsSkillExpGainMultsWithPCLevel[kSkillCount];
+    LeveledSetting<float> perksAtLevelUp;
 
-    float                  settingsLevelSkillExpMults[kSkillCount];
-    LeveledSetting<float>  settingsLevelSkillExpMultsWithSkills[kSkillCount];
-    LeveledSetting<float>  settingsLevelSkillExpMultsWithPCLevel[kSkillCount];
+    SkillSettingManager<SkillSetting<float>> skillExpGainMults;
+    SkillSettingManager<LeveledSetting<float>> skillExpGainMultsWithSkills;
+    SkillSettingManager<LeveledSetting<float>> skillExpGainMultsWithPCLevel;
 
-    LeveledSetting<UInt32> settingsHealthAtLevelUp;
-    LeveledSetting<UInt32> settingsMagickaAtLevelUp;
-    LeveledSetting<UInt32> settingsStaminaAtLevelUp;
-    LeveledSetting<UInt32> settingsCarryWeightAtHealthLevelUp;
-    LeveledSetting<UInt32> settingsCarryWeightAtMagickaLevelUp;
-    LeveledSetting<UInt32> settingsCarryWeightAtStaminaLevelUp;
+    SkillSettingManager<SkillSetting<float>> levelSkillExpMults;
+    SkillSettingManager<LeveledSetting<float>> levelSkillExpMultsWithSkills;
+    SkillSettingManager<LeveledSetting<float>> levelSkillExpMultsWithPCLevel;
 
-    struct {
-        bool bLegendaryKeepSkillLevel;
-        bool bHideLegendaryButton;
-        UInt32 iSkillLevelEnableLegendary;
-        UInt32 iSkillLevelAfterLegendary;
-    } settingsLegendarySkill;
+    LeveledSetting<unsigned int> healthAtLevelUp;
+    LeveledSetting<unsigned int> magickaAtLevelUp;
+    LeveledSetting<unsigned int> staminaAtLevelUp;
+    LeveledSetting<unsigned int> carryWeightAtHealthLevelUp;
+    LeveledSetting<unsigned int> carryWeightAtMagickaLevelUp;
+    LeveledSetting<unsigned int> carryWeightAtStaminaLevelUp;
 
-    struct {
-        UInt32 version;
-        std::string author;
-    } settingsGeneral;
+    LegendarySettings legendary;
 
   public:
     /// @brief Encodes the attribute selection during level-up.
@@ -348,6 +572,26 @@ class Settings {
         ATTR_MAGICKA,
         ATTR_STAMINA
     } player_attr_e;
+
+    Settings(
+    ) : general(),
+        skillCaps("SkillCaps", 100),
+        skillFormulaCaps("SkillFormulatCaps", 100),
+        perksAtLevelUp("PerksAtLevelUp", 1.00),
+        skillExpGainMults("SkillExpGainMults", 1.00),
+        skillExpGgainMultsWithPCLevel("SkillExpGainMults\\CharacterLevel\\", 1.00),
+        skillExpGainMultsWithSkills("SkillExpGainMults\\BaseSkillLevel\\", 1.00),
+        levelSkillExpMults("LevelSkillExpMults", 1.00),
+        levelSkillExpMultsWithPCLevel("LevelSkillExpMults\\CharacterLevel\\", 1.00),
+        levelSkillExpMultsWithSkills("LevelSkillExpMults\\BaseSkillLevel\\", 1.00),
+        healthAtLevelUp("HealthAtLevelUp", 10),
+        magickaAtLevelUp("MagickaAtLevelUp", 10),
+        staminaAtLevelUp("StaminaAtLevelUp", 10),
+        carryWeightAtHealthLevelUp("CarryWeightAtHealthLevelUp", 0),
+        carryWeightAtMagickaLevelUp("CarryWeightAtMagickaLevelUp", 0),
+        carryWeightAtStaminaLevelUp("CarryWeightAtStaminaLevelUp", 5),
+        legendary()
+    {}
 
     bool ReadConfig(const std::string& path);
 

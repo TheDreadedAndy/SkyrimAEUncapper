@@ -13,99 +13,55 @@
 #include "Compare.h"
 #include "Utilities.h"
 
-/**
- * @brief Reads the given section of the given INI into the given MAP.
- * @param INI The INI to read from.
- * @param LIST The LeveledSetting to load the data into.
- * @param SECTION The section of the INI to read.
- * @param DEFAULT The value to use if a key does not have one.
- * @param CONV The function to use to convert the value to the map type.
- */
-#define ReadLevelListSection(INI, LIST, SECTION, DEFAULT, CONV)\
-do {\
-    CSimpleIniA::TNamesDepend _keys;\
-    \
-    if (ini.GetAllKeys(SECTION, _keys)) {\
-        for (auto& _element : _keys) {\
-            (LIST).Add(\
-                atoi(_element.pItem),\
-                CONV##(ini.GetValue(SECTION, _element.pItem, #DEFAULT))\
-            );\
-        }\
-    }\
-    \
-    (LIST).Add(0, DEFAULT);\
-} while (0)
-
-#define ReadFloatLevelListSection(INI, LIST, SECTION, DEFAULT)\
-    ReadLevelListSection(INI, LIST, SECTION, DEFAULT, atof)
-#define ReadIntLevelListSection(INI, LIST, SECTION, DEFAULT)\
-    ReadLevelListSection(INI, LIST, SECTION, DEFAULT, atoi)
-
-/**
- * @brief Saves the given float-value list to the given section of the INI.
- * @param INI The ini file to save to.
- * @param LIST The LeveledSetting to be saved.
- * @param SECTION The section to save the list to.
- * @param COMMENT The comment expression to be applied to each entry.
- */
-#define SaveFloatLevelListSection(INI, LIST, SECTION, COMMENT)\
-do {\
-    LeveledSetting<float>::LevelItem _level;\
-    for (size_t _i = 0; _i < (LIST).Size(); _i++) {\
-        (LIST).GetItem(_i, _level);\
-        char _key[16];\
-        ASSERT(sprintf_s(_key, "%d", _level.level) > 0);\
-        ASSERT((INI).SetDoubleValue(SECTION, _key, _level.item, (!_i) ? (COMMENT) : NULL) >= 0);\
-    }\
-} while (0)
-
-#define SaveIntLevelListSection(INI, LIST, SECTION, COMMENT)\
-do {\
-    LeveledSetting<UInt32>::LevelItem _level;\
-    for (size_t _i = 0; _i < (LIST).Size(); _i++) {\
-        (LIST).GetItem(_i, _level);\
-        char _key[16];\
-        ASSERT(sprintf_s(_key, "%d", _level.level) > 0);\
-        ASSERT((INI).SetLongValue(SECTION, _key, _level.item, (!_i) ? (COMMENT) : NULL) >= 0);\
-    }\
-} while (0)
-
 /// @brief Global settings manager, used throughout this plugin.
 Settings settings;
 
 /**
- * @brief Fills the given string buffer with prefix + skill_name
+ * @brief Reads in the general settings section
  */
 void
-Settings::GetSkillStr(
-    char *buf,
-    size_t buf_size,
-    player_skill_e skill,
-    const char *prefix
+Settings::GeneralSettings::ReadConfig(
+    CSimpleIniA &ini
 ) {
-    ASSERT(buf);
-    ASSERT(buf_size > 0);
-    ASSERT(skill < kSkillCount);
-    ASSERT(prefix);
-
-    int res = snprintf(buf, buf_size, "%s%s", prefix, kSkillNames[skill]);
-    ASSERT((0 <= res) && (res < buf_size));
+    version.ReadConfig(ini, kSection);
+    author.ReadConfig(ini, kSection);
 }
 
 /**
- * @brief Converts the given skill ID to a player skill enumeration.
- *
- * The provided ID must be valid.
- *
- * @param skill_id The ID to be converted.
+ * @brief Saves the general settings section.
  */
-Settings::player_skill_e
-Settings::GetSkillFromId(
-    unsigned int skill_id
+void
+Settings::GeneralSettings::SaveConfig(
+    CSimpleIniA &ini
 ) {
-    ASSERT(IsManagedSkill(skill_id));
-    return static_cast<player_skill_e>(skill_id - kSkillOffset);
+    version.SaveConfig(ini, kSection, NULL);
+    author.SaveConfig(ini, kSection, NULL);
+}
+
+/**
+ * @brief Reads in the legendary skill settings section.
+ */
+void
+Settings::LegendarySettings::ReadConfig(
+    CSimpleIniA &ini
+) {
+    keepSkillLevel.ReadConfig(ini, kSection);
+    hideButton.ReadConfig(ini, kSection);
+    skillLevelEnable.ReadConfig(ini, kSection);
+    skillLevelAfter.ReadConfig(ini, kSection);
+}
+
+/**
+ * @brief Saves the legendary skill settings section.
+ */
+void
+Settings::LegendarySettings::SaveConfig(
+    CSimpleIniA &ini
+) {
+    keepSkillLevel.SaveConfig(ini, kSection, kKeepSkillLevelDesc);
+    hideButton.SaveConfig(ini, kSection, kHideButtonDesc);
+    skillLevelEnable.SaveConfig(ini, kSection, kSkillLevelEnableDesc);
+    skillLevelAfter.SaveConfig(ini, kSection, kSkillLevelAfterDesc);
 }
 
 /**
@@ -127,117 +83,24 @@ Settings::SaveConfig(
     ini.Reset();
 
     // Reset the general information.
-    settingsGeneral.version = CONFIG_VERSION;
-    ASSERT(ini.SetLongValue(
-        "General",
-        "Version",
-        CONFIG_VERSION,
-        "# Configuration file version, DO NOT CHANGE"
-    ) >= 0);
-    ASSERT(ini.SetValue("General", "Author", "Kassent", NULL) >= 0);
-
-    // Save the per-skill settings.
-    for (int i = 0; i < kSkillCount; i++) {
-        /* Skill cap settings */
-        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "i");
-
-        ASSERT(ini.SetLongValue(
-            "SkillCaps",
-            skill_buf,
-            settingsSkillCaps[i],
-            (!i) ? kSkillCapsDesc : NULL
-        ) >= 0);
-
-        ASSERT(ini.SetLongValue(
-            "SkillFormulaCaps",
-            skill_buf,
-            settingsSkillFormulaCaps[i],
-            (!i) ? kSkillFormulaCapsDesc : NULL
-        ) >= 0);
-
-        /* Exp multiplier settings */
-        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "f");
-
-        ASSERT(ini.SetDoubleValue(
-            "SkillExpGainMults",
-            skill_buf,
-            settingsSkillExpGainMults[i],
-            (!i) ? kSkillExpGainMultsDesc : NULL
-        ) >= 0);
-
-        ASSERT(ini.SetDoubleValue(
-            "LevelSkillExpMults",
-            skill_buf,
-            settingsLevelSkillExpMults[i],
-            (!i) ? kLevelSkillExpMultsDesc : NULL
-        ) >= 0);
-
-        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "SkillExpGainMults\\CharacterLevel\\");
-        SaveFloatLevelListSection(
-            ini,
-            settingsSkillExpGainMultsWithPCLevel[i],
-            skill_buf,
-            (!i) ? kSkillExpGainMultsWithPCLevelDesc : NULL
-        );
-
-        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "SkillExpGainMults\\BaseSkillLevel\\");
-        SaveFloatLevelListSection(
-            ini,
-            settingsSkillExpGainMultsWithSkills[i],
-            skill_buf,
-            (!i) ? kSkillExpGainMultsWithSkillsDesc : NULL
-        );
-
-        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "LevelSkillExpMults\\CharacterLevel\\");
-        SaveFloatLevelListSection(
-            ini,
-            settingsLevelSkillExpMultsWithPCLevel[i],
-            skill_buf,
-            (!i) ? kLevelSkillExpMultsWithPCLevelDesc : NULL
-        );
-
-        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "LevelSkillExpMults\\BaseSkillLevel\\");
-        SaveFloatLevelListSection(
-            ini,
-            settingsLevelSkillExpMultsWithSkills[i],
-            skill_buf,
-            (!i) ? kLevelSkillExpMultsWithSkillsDesc : NULL
-        );
-    }
-
-    /* Level-up settings */
-    SaveFloatLevelListSection(ini, settingsPerksAtLevelUp, "PerksAtLevelUp", kPerksAtLevelUpDesc);
-    SaveIntLevelListSection(ini, settingsHealthAtLevelUp, "HealthAtLevelUp", kHealthAtLevelUpDesc);
-    SaveIntLevelListSection(ini, settingsMagickaAtLevelUp, "MagickaAtLevelUp", kMagickaAtLevelUpDesc);
-    SaveIntLevelListSection(ini, settingsStaminaAtLevelUp, "StaminaAtLevelUp", kStaminaAtLevelUpDesc);
-    SaveIntLevelListSection(ini, settingsCarryWeightAtHealthLevelUp, "CarryWeightAtHealthLevelUp", kCarryWeightAtHealthLevelUpDesc);
-    SaveIntLevelListSection(ini, settingsCarryWeightAtMagickaLevelUp, "CarryWeightAtMagickaLevelUp", kCarryWeightAtMagickaLevelUpDesc);
-    SaveIntLevelListSection(ini, settingsCarryWeightAtStaminaLevelUp, "CarryWeightAtStaminaLevelUp", kCarryWeightAtStaminaLevelUpDesc);
-
-    ASSERT(ini.SetBoolValue(
-        "LegendarySkill",
-        "bLegendaryKeepSkillLevel",
-        settings.settingsLegendarySkill.bLegendaryKeepSkillLevel,
-        kLegendaryKeepSkillLevelDesc
-    ) >= 0);
-    ASSERT(ini.SetBoolValue(
-        "LegendarySkill",
-        "bHideLegendaryButton",
-        settings.settingsLegendarySkill.bHideLegendaryButton,
-        kHideLegendaryButtonDesc
-    ) >= 0);
-    ASSERT(ini.SetLongValue(
-        "LegendarySkill",
-        "iSkillLevelEnableLegendary",
-        settings.settingsLegendarySkill.iSkillLevelEnableLegendary,
-        kSkillLevelEnableLegendaryDesc
-    ) >= 0);
-    ASSERT(ini.SetLongValue(
-        "LegendarySkill",
-        "iSkillLevelAfterLegendary",
-        settings.settingsLegendarySkill.iSkillLevelAfterLegendary,
-        kSkillLevelAfterLegendaryDesc
-    ) >= 0);
+    general.version.Set(CONFIG_VERSION);
+    general.SaveConfig(ini);
+    skillCaps.SaveConfig(ini, kSkillCapsDesc);
+    skillFormulaCaps.SaveConfig(ini, kSkillFormulaCapsDesc);
+    perksAtLevelUp.SaveConfig(ini, kPerksAtLevelUpDesc);
+    skillExpGainMults.SaveConfig(ini, kSkillExpGainMultsDesc);
+    skillExpGainMultsWithSkills.SaveConfig(ini, kSkillExpGainMultsWithSkillDesc);
+    skillExpGainMultsWithPCLevel.SaveConfig(ini, kSkillExpGainMultsWithPCLevelDesc);
+    levelSkillExpMults.SaveConfig(ini, kLevelSkillExpMultsDesc);
+    levelSkillExpMultsWithSkills.SaveConfig(ini, kLevelSkillExpMultsWithSkillsDesc);
+    levelSkillExpMultsWithPCLevel.SaveConfig(ini, kLevelSkillExpMultsWithPCLevelDesc);
+    healthAtLevelUp.SaveConfig(ini, kHealthAtLevelUpDesc);
+    magickaAtLevelUp.SaveConfig(ini, kMagickaAtLevelUpDesc);
+    staminaAtLevelUp.SaveConfig(ini, kStaminaAtLevelUpDesc);
+    carryWeightAtHealthLevelUp.SaveConfig(ini, kCarryWeightAtHealthLevelUpDesc);
+    carryWeightAtMagickaLevelUp.SaveConfig(ini, kCarryWeightAtMagickaLevelUpDesc);
+    carryWeightAtStaminaLevelUp.SaveConfig(ini, kCarryWeightAtStaminaLevelUpDesc);
+    legendary.SaveConfig(ini);
 
     // Save the generated INI file.
     SI_Error er = ini.SaveFile(path.c_str());
@@ -266,7 +129,7 @@ Settings::ReadConfig(
     _MESSAGE("Loading config file %s...", path.c_str());
     CSimpleIniA ini;
     SI_Error er = ini.LoadFile(path.c_str());
-    bool needSave = false;
+    bool need_save = false;
     if (er < SI_OK) {
         if ((er != SI_FILE) || (errno != ENOENT)) {
             _ERROR("Can't load config file ret:%d errno:%d", (int)er,  errno);
@@ -276,70 +139,38 @@ Settings::ReadConfig(
     }
 
     // Load general info.
-    settingsGeneral.version = ini.GetLongValue("General", "Version", 0);
-    settingsGeneral.author = ini.GetValue("General", "Author", "Kassent");
-    _MESSAGE("INI version: %d", settingsGeneral.version);
+    general.ReadConfig();
+    _MESSAGE("INI version: %d", general.version.Get());
 
     // Check if we need to write out the configuration.
-    if (needSave) {
+    if (need_save) {
         _MESSAGE("Config file does not exist. It will be created.");
-    } else if (settingsGeneral.version < CONFIG_VERSION) {
+    } else if (general.version.Get() < CONFIG_VERSION) {
         _MESSAGE("Config file is outdated. It will be updated.");
-        needSave = true;
+        need_save = true;
     }
 
-    // Big enough.
-    const size_t skill_buf_size = 128;
-    char skill_buf[skill_buf_size];
-
-    // Iterate over settings for each skill.
-    for (int i = 0; i < kSkillCount; i++) {
-        /* Load default caps */
-        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "i");
-        settingsSkillCaps[i] = ini.GetLongValue("SkillCaps", skill_buf, 100);
-        settingsSkillFormulaCaps[i] = ini.GetLongValue("SkillFormulaCaps", skill_buf, 100);
-
-        /* Load EXP multipliers */
-        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "f");
-        settingsSkillExpGainMults[i] = atof(ini.GetValue("SkillExpGainMults", skill_buf, "1.00"));
-        settingsLevelSkillExpMults[i] = atof(ini.GetValue("LevelSkillExpMults", skill_buf, "1.00"));
-
-        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "SkillExpGainMults\\CharacterLevel\\");
-        ReadFloatLevelListSection(ini, settingsSkillExpGainMultsWithPCLevel[i], skill_buf, 1.00);
-
-        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "SkillExpGainMults\\BaseSkillLevel\\");
-        ReadFloatLevelListSection(ini, settingsSkillExpGainMultsWithSkills[i], skill_buf, 1.00);
-
-        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "LevelSkillExpMults\\CharacterLevel\\");
-        ReadFloatLevelListSection(ini, settingsLevelSkillExpMultsWithPCLevel[i], skill_buf, 1.00);
-
-        GetSkillStr(skill_buf, skill_buf_size, static_cast<player_skill_e>(i), "LevelSkillExpMults\\BaseSkillLevel\\");
-        ReadFloatLevelListSection(ini, settingsLevelSkillExpMultsWithSkills[i], skill_buf, 1.00);
-    }
-
-    /* Level-up settings */
-    ReadFloatLevelListSection(ini, settingsPerksAtLevelUp, "PerksAtLevelUp", 1.00);
-    ReadIntLevelListSection(ini, settingsHealthAtLevelUp, "HealthAtLevelUp", 10);
-    ReadIntLevelListSection(ini, settingsMagickaAtLevelUp, "MagickaAtLevelUp", 10);
-    ReadIntLevelListSection(ini, settingsStaminaAtLevelUp, "StaminaAtLevelUp", 10);
-    ReadIntLevelListSection(ini, settingsCarryWeightAtHealthLevelUp, "CarryWeightAtHealthLevelUp", 0);
-    ReadIntLevelListSection(ini, settingsCarryWeightAtMagickaLevelUp, "CarryWeightAtMagickaLevelUp", 0);
-    ReadIntLevelListSection(ini, settingsCarryWeightAtStaminaLevelUp, "CarryWeightAtStaminaLevelUp", 5);
-
-    /* Legendary Skill Settings */
-    settings.settingsLegendarySkill.bLegendaryKeepSkillLevel =
-        ini.GetBoolValue("LegendarySkill", "bLegendaryKeepSkillLevel", false);
-    settings.settingsLegendarySkill.bHideLegendaryButton =
-        ini.GetBoolValue("LegendarySkill", "bHideLegendaryButton", true);
-    settings.settingsLegendarySkill.iSkillLevelEnableLegendary =
-        ini.GetLongValue("LegendarySkill", "iSkillLevelEnableLegendary", 100);
-    settings.settingsLegendarySkill.iSkillLevelAfterLegendary =
-        ini.GetLongValue("LegendarySkill", "iSkillLevelAfterLegendary", 0);
+    skillCaps.ReadConfig(ini);
+    skillFormulaCaps.ReadConfig(ini);
+    perksAtLevelUp.ReadConfig(ini);
+    skillExpGainMults.ReadConfig(ini);
+    skillExpGainMultsWithSkills.ReadConfig(ini);
+    skillExpGainMultsWithPCLevel.ReadConfig(ini);
+    levelSkillExpMults.ReadConfig(ini);
+    levelSkillExpMultsWithSkills.ReadConfig(ini);
+    levelSkillExpMultsWithPCLevel.ReadConfig(ini);
+    healthAtLevelUp.ReadConfig(ini);
+    magickaAtLevelUp.ReadConfig(ini);
+    staminaAtLevelUp.ReadConfig(ini);
+    carryWeightAtHealthLevelUp.ReadConfig(ini);
+    carryWeightAtMagickaLevelUp.ReadConfig(ini);
+    carryWeightAtStaminaLevelUp.ReadConfig(ini);
+    legendary.ReadConfig(ini);
 
     _MESSAGE("Done!");
 
     // Save the configuration, if necessary.
-    if (needSave) {
+    if (need_save) {
         return SaveConfig(ini, path);
     } else {
         return true;
@@ -353,7 +184,7 @@ bool
 Settings::IsManagedSkill(
     unsigned int skill_id
 ) {
-    return (kSkillOffset <= skill_id) && (skill_id < (kSkillOffset + kSkillCount));
+    return SkillSlot::IsSkill(skill_id);
 }
 
 /**
@@ -363,7 +194,7 @@ float
 Settings::GetSkillCap(
     unsigned int skill_id
 ) {
-    return settingsSkillCaps[GetSkillFromId(skill_id)];
+    return skillCaps.Get(SkillSlot::FromId(skill_id)).Get();
 }
 
 /**
@@ -373,7 +204,7 @@ float
 Settings::GetSkillFormulaCap(
     unsigned int skill_id
 ) {
-    return settingsSkillFormulaCaps[GetSkillFromId(skill_id)];
+    return skillFormulaCaps.Get(SkillSlot::FromId(skill_id)).Get();
 }
 
 /**
@@ -384,7 +215,7 @@ unsigned int
 Settings::GetPerkDelta(
     unsigned int player_level
 ) {
-    return settingsPerksAtLevelUp.GetCumulativeDelta(player_level);
+    return perksAtLevelUp.GetCumulativeDelta(player_level);
 }
 
 /**
@@ -400,10 +231,10 @@ Settings::GetSkillExpGainMult(
     unsigned int skill_level,
     unsigned int player_level
 ) {
-    player_skill_e skill = GetSkillFromId(skill_id);
-    float base_mult = settingsSkillExpGainMults[skill];
-    float skill_mult = settingsSkillExpGainMultsWithSkills[skill].GetNearest(skill_level);
-    float pc_mult = settingsSkillExpGainMultsWithPCLevel[skill].GetNearest(player_level);
+    SkillSlot::t skill = SkillSlot::FromId(skill_id);
+    float base_mult = skillExpGainMults.Get(skill).Get();
+    float skill_mult = skillExpGainMultsWithSkills.Get(skill).GetNearest(skill_level);
+    float pc_mult = skillExpGainMultsWithPCLevel.Get(skill).GetNearest(player_level);
     return base_mult * skill_mult * pc_mult;
 }
 
@@ -420,10 +251,10 @@ Settings::GetLevelSkillExpMult(
     unsigned int skill_level,
     unsigned int player_level
 ) {
-    player_skill_e skill = GetSkillFromId(skill_id);
-    float base_mult = settingsLevelSkillExpMults[skill];
-    float skill_mult = settingsLevelSkillExpMultsWithSkills[skill].GetNearest(skill_level);
-    float pc_mult = settingsLevelSkillExpMultsWithPCLevel[skill].GetNearest(player_level);
+    SkillSlot::t skill = SkillSlot::FromId(skill_id);
+    float base_mult = levelSkillExpMults.Get(skill);
+    float skill_mult = levelSkillExpMultsWithSkills.Get(skill).GetNearest(skill_level);
+    float pc_mult = levelSkillExpMultsWithPCLevel.Get(skill).GetNearest(player_level);
     return base_mult * skill_mult * pc_mult;
 }
 
@@ -447,16 +278,16 @@ Settings::GetAttributeLevelUp(
     UInt32 a_up = 0, c_up = 0;
     switch (attr) {
         case ATTR_HEALTH:
-            a_up = settingsHealthAtLevelUp.GetNearest(player_level);
-            c_up = settingsCarryWeightAtHealthLevelUp.GetNearest(player_level);
+            a_up = healthAtLevelUp.GetNearest(player_level);
+            c_up = carryWeightAtHealthLevelUp.GetNearest(player_level);
             break;
         case ATTR_MAGICKA:
-            a_up = settingsMagickaAtLevelUp.GetNearest(player_level);
-            c_up = settingsCarryWeightAtMagickaLevelUp.GetNearest(player_level);
+            a_up = magickaAtLevelUp.GetNearest(player_level);
+            c_up = carryWeightAtMagickaLevelUp.GetNearest(player_level);
             break;
         case ATTR_STAMINA:
-            a_up = settingsStaminaAtLevelUp.GetNearest(player_level);
-            c_up = settingsCarryWeightAtStaminaLevelUp.GetNearest(player_level);
+            a_up = staminaAtLevelUp.GetNearest(player_level);
+            c_up = carryWeightAtStaminaLevelUp.GetNearest(player_level);
             break;
     }
 
@@ -473,8 +304,8 @@ bool
 Settings::IsLegendaryButtonVisible(
     unsigned int skill_level
 ) {
-    return (skill_level >= settingsLegendarySkill.iSkillLevelEnableLegendary)
-        && (!settingsLegendarySkill.bHideLegendaryButton);
+    return (skill_level >= legendary.iSkillLevelEnableLegendary)
+        && (!legendary.bHideLegendaryButton);
 }
 
 /**
@@ -484,7 +315,7 @@ bool
 Settings::IsLegendaryAvailable(
     unsigned int skill_level
 ) {
-    return skill_level >= settingsLegendarySkill.iSkillLevelEnableLegendary;
+    return skill_level >= legendary.iSkillLevelEnableLegendary;
 }
 
 /**
@@ -496,12 +327,12 @@ Settings::GetPostLegendarySkillLevel(
     float base_level
 ) {
     // Check if legendarying should reset the level at all.
-    if (settingsLegendarySkill.bLegendaryKeepSkillLevel) {
+    if (legendary.bLegendaryKeepSkillLevel) {
         return base_level;
     }
 
     // 0 in the conf file means we should use the default value.
-    float reset_level = static_cast<float>(settingsLegendarySkill.iSkillLevelAfterLegendary);
+    float reset_level = static_cast<float>(legendary.iSkillLevelAfterLegendary);
     if (reset_level == 0) {
         reset_level = default_reset;
     }
