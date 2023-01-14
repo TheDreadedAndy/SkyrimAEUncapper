@@ -74,9 +74,6 @@ Settings::SaveConfig(
     CSimpleIniA &ini,
     const std::string &path
 ) {
-    const size_t skill_buf_size = 128;
-    char skill_buf[skill_buf_size];
-
     _MESSAGE("Saving config file...");
 
     // Clear the INI file; we will rewrite it.
@@ -89,7 +86,7 @@ Settings::SaveConfig(
     skillFormulaCaps.SaveConfig(ini, kSkillFormulaCapsDesc);
     perksAtLevelUp.SaveConfig(ini, kPerksAtLevelUpDesc);
     skillExpGainMults.SaveConfig(ini, kSkillExpGainMultsDesc);
-    skillExpGainMultsWithSkills.SaveConfig(ini, kSkillExpGainMultsWithSkillDesc);
+    skillExpGainMultsWithSkills.SaveConfig(ini, kSkillExpGainMultsWithSkillsDesc);
     skillExpGainMultsWithPCLevel.SaveConfig(ini, kSkillExpGainMultsWithPCLevelDesc);
     levelSkillExpMults.SaveConfig(ini, kLevelSkillExpMultsDesc);
     levelSkillExpMultsWithSkills.SaveConfig(ini, kLevelSkillExpMultsWithSkillsDesc);
@@ -135,11 +132,11 @@ Settings::ReadConfig(
             _ERROR("Can't load config file ret:%d errno:%d", (int)er,  errno);
             return false;
         }
-        needSave = true; // No such file or directory.
+        need_save = true; // No such file or directory.
     }
 
     // Load general info.
-    general.ReadConfig();
+    general.ReadConfig(ini);
     _MESSAGE("INI version: %d", general.version.Get());
 
     // Check if we need to write out the configuration.
@@ -252,7 +249,7 @@ Settings::GetLevelSkillExpMult(
     unsigned int player_level
 ) {
     SkillSlot::t skill = SkillSlot::FromId(skill_id);
-    float base_mult = levelSkillExpMults.Get(skill);
+    float base_mult = levelSkillExpMults.Get(skill).Get();
     float skill_mult = levelSkillExpMultsWithSkills.Get(skill).GetNearest(skill_level);
     float pc_mult = levelSkillExpMultsWithPCLevel.Get(skill).GetNearest(player_level);
     return base_mult * skill_mult * pc_mult;
@@ -304,8 +301,8 @@ bool
 Settings::IsLegendaryButtonVisible(
     unsigned int skill_level
 ) {
-    return (skill_level >= legendary.iSkillLevelEnableLegendary)
-        && (!legendary.bHideLegendaryButton);
+    return (skill_level >= legendary.skillLevelEnable.Get())
+        && (!legendary.hideButton.Get());
 }
 
 /**
@@ -315,7 +312,7 @@ bool
 Settings::IsLegendaryAvailable(
     unsigned int skill_level
 ) {
-    return skill_level >= legendary.iSkillLevelEnableLegendary;
+    return skill_level >= legendary.skillLevelEnable.Get();
 }
 
 /**
@@ -327,12 +324,12 @@ Settings::GetPostLegendarySkillLevel(
     float base_level
 ) {
     // Check if legendarying should reset the level at all.
-    if (legendary.bLegendaryKeepSkillLevel) {
+    if (legendary.keepSkillLevel.Get()) {
         return base_level;
     }
 
     // 0 in the conf file means we should use the default value.
-    float reset_level = static_cast<float>(legendary.iSkillLevelAfterLegendary);
+    float reset_level = static_cast<float>(legendary.skillLevelAfter.Get());
     if (reset_level == 0) {
         reset_level = default_reset;
     }

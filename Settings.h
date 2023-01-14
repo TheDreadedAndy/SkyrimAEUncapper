@@ -19,7 +19,7 @@
 #include "SkillSlot.h"
 #include "Ini.h"
 
-#define CONFIG_VERSION 6
+#define CONFIG_VERSION 5
 
 template<typename T>
 class LeveledSetting {
@@ -30,9 +30,11 @@ class LeveledSetting {
     };
 
     /// @brief The buffer size used to concat the section and subsection.
-    const size_t kBufSize = 256;
+    static const size_t kBufSize = 256;
 
     std::vector<LevelItem> list;
+    const char *section;
+    T defaultVal;
 
     /**
      * @brief Adds an item to the leveled setting list.
@@ -85,7 +87,7 @@ class LeveledSetting {
         CSimpleIniA::TNamesDepend keys;
 
         list.clear();
-        if (ini.GetAllKeys(buf, keys)) {
+        if (ini.GetAllKeys(sec, keys)) {
             for (auto& element : keys) {\
                 Add(
                     atoi(element.pItem),
@@ -107,7 +109,7 @@ class LeveledSetting {
     void
     InternalSaveConfig(
         CSimpleIniA &ini,
-        const char *sec
+        const char *sec,
         const char *comment
     ) {
         char key[16];
@@ -128,7 +130,7 @@ class LeveledSetting {
     LeveledSetting(
     ) : list(0),
         section(nullptr),
-        default_val(0)
+        defaultVal(0)
     {}
 
     /**
@@ -145,7 +147,7 @@ class LeveledSetting {
         T default_val
     ) : list(0),
         section(section),
-        default_val(default_val)
+        defaultVal(default_val)
     {}
 
     /**
@@ -187,7 +189,7 @@ class LeveledSetting {
         CSimpleIniA &ini
     ) {
         ASSERT(section);
-        InternalReadConfig(ini, section, default_val);
+        InternalReadConfig(ini, section, defaultVal);
     }
 
     /**
@@ -211,7 +213,7 @@ class LeveledSetting {
         ASSERT(section == nullptr);
 
         char buf[kBufSize];
-        auto res = sprintf_s(buf, "%s%c%s", section, GetPrefix<T>(), subsection);
+        auto res = sprintf_s(buf, "%s%c%s", sec, GetPrefix<T>(), subsec);
         ASSERT((0 < res) && (res < kBufSize));
         InternalSaveConfig(ini, buf, comment);
     }
@@ -294,7 +296,7 @@ class LeveledSetting {
             acc += (this_level - list[i].level) * list[i].item;
 
             // If this is the last iteration, get the previous accumulation.
-            if (((i + 1) >= list.size()) || (list[i].level > level)) {
+            if (((i + 1) >= list.size()) || (list[i + 1].level > level)) {
                 pacc = acc - list[i].item;
             }
         }
@@ -304,10 +306,10 @@ class LeveledSetting {
 };
 
 template <typename T>
-clase SkillSetting {
+class SkillSetting {
   private:
     /// @brief Size of the prefixed skill field buffer.
-    const size_t buf_size = 32;
+    static const size_t kBufSize = 32;
 
     T val;
 
@@ -361,32 +363,32 @@ clase SkillSetting {
         ASSERT((0 < res) && (res < kBufSize));
         SaveIniValue(ini, section, buf, val, comment);
     }
-}
+};
 
-template <template<typename U> class T>
+template <template<typename> class T, typename U>
 class SkillSettingManager {
   private:
     const char *section;
-    T data[SkillSlot::kCount];
-    U default_val;
+    T<U> data[SkillSlot::kCount];
+    U defaultVal;
 
   public:
-    SkillSetting(
+    SkillSettingManager(
         const char *section,
         U default_val
     ) : section(section),
-        default_val(default_val)
+        defaultVal(default_val)
     {}
 
     /**
      * @brief Gets the setting for the given skill.
      * @param The skill to get the setting for.
      */
-    &T
+    T<U>&
     Get(
         SkillSlot::t skill
     ) {
-        return &data[skill];
+        return data[skill];
     }
 
     /**
@@ -398,7 +400,8 @@ class SkillSettingManager {
         CSimpleIniA &ini
     ) {
         for (int i = 0; i < SkillSlot::kCount; i++) {
-            data[i].ReadConfig(ini, section, SkillSlot::Str(i), default_val);
+            SkillSlot::t slot = static_cast<SkillSlot::t>(i);
+            data[i].ReadConfig(ini, section, SkillSlot::Str(slot), defaultVal);
         }
     }
 
@@ -409,10 +412,12 @@ class SkillSettingManager {
      */
     void
     SaveConfig(
-        CSimpleIniA &ini
+        CSimpleIniA &ini,
+        const char *comment
     ) {
         for (int i = 0; i < SkillSlot::kCount; i++) {
-            data[i].SaveConfig(ini, section, SkillSlot::Str(i), (!i) ? comment : NULL);
+            SkillSlot::t slot = static_cast<SkillSlot::t>(i);
+            data[i].SaveConfig(ini, section, SkillSlot::Str(slot), (!i) ? comment : NULL);
         }
     }
 };
@@ -425,7 +430,7 @@ class Settings {
 
       public:
         SectionField<unsigned int> version;
-        SectionField<std::string> author;
+        SectionField<const char *> author;
 
         GeneralSettings(
         ) : version("Version", 0),
@@ -543,18 +548,18 @@ class Settings {
 
     GeneralSettings general;
 
-    SkillSettingManager<SkillSetting<unsigned int>> skillCaps;
-    SkillSettingManager<SkillSetting<unsigned int>> skillFormulaCaps;
+    SkillSettingManager<SkillSetting, unsigned int> skillCaps;
+    SkillSettingManager<SkillSetting, unsigned int> skillFormulaCaps;
 
     LeveledSetting<float> perksAtLevelUp;
 
-    SkillSettingManager<SkillSetting<float>> skillExpGainMults;
-    SkillSettingManager<LeveledSetting<float>> skillExpGainMultsWithSkills;
-    SkillSettingManager<LeveledSetting<float>> skillExpGainMultsWithPCLevel;
+    SkillSettingManager<SkillSetting, float> skillExpGainMults;
+    SkillSettingManager<LeveledSetting, float> skillExpGainMultsWithSkills;
+    SkillSettingManager<LeveledSetting, float> skillExpGainMultsWithPCLevel;
 
-    SkillSettingManager<SkillSetting<float>> levelSkillExpMults;
-    SkillSettingManager<LeveledSetting<float>> levelSkillExpMultsWithSkills;
-    SkillSettingManager<LeveledSetting<float>> levelSkillExpMultsWithPCLevel;
+    SkillSettingManager<SkillSetting, float> levelSkillExpMults;
+    SkillSettingManager<LeveledSetting, float> levelSkillExpMultsWithSkills;
+    SkillSettingManager<LeveledSetting, float> levelSkillExpMultsWithPCLevel;
 
     LeveledSetting<unsigned int> healthAtLevelUp;
     LeveledSetting<unsigned int> magickaAtLevelUp;
@@ -579,7 +584,7 @@ class Settings {
         skillFormulaCaps("SkillFormulatCaps", 100),
         perksAtLevelUp("PerksAtLevelUp", 1.00),
         skillExpGainMults("SkillExpGainMults", 1.00),
-        skillExpGgainMultsWithPCLevel("SkillExpGainMults\\CharacterLevel\\", 1.00),
+        skillExpGainMultsWithPCLevel("SkillExpGainMults\\CharacterLevel\\", 1.00),
         skillExpGainMultsWithSkills("SkillExpGainMults\\BaseSkillLevel\\", 1.00),
         levelSkillExpMults("LevelSkillExpMults", 1.00),
         levelSkillExpMultsWithPCLevel("LevelSkillExpMults\\CharacterLevel\\", 1.00),
@@ -613,3 +618,4 @@ class Settings {
 extern Settings settings;
 
 #endif /* __SKYRIM_UNCAPPER_AE_SETTINGS_H__ */
+

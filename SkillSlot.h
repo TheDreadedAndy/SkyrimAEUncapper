@@ -12,32 +12,6 @@
  * @brief Encodes the various skill slots of the player.
  */
 class SkillSlot {
-  private:
-    /// @brief Offset from raw skill IDs to the skill enumeration values.
-    const unsigned int kOffset = 6;
-
-    /// @brief Used to convert a skill enum to a skill name.
-    const char *const kSkillNames[kSkillCount] = {
-        "OneHanded",
-        "TwoHanded",
-        "Marksman",
-        "Block",
-        "Smithing",
-        "HeavyArmor",
-        "LightArmor",
-        "Pickpocket",
-        "LockPicking",
-        "Sneak",
-        "Alchemy",
-        "SpeechCraft",
-        "Alteration",
-        "Conjuration",
-        "Destruction",
-        "Illusion",
-        "Restoration",
-        "Enchanting"
-    };
-
   public:
     /**
      * @brief Encodes the skills in the order of their IDs.
@@ -67,9 +41,17 @@ class SkillSlot {
         kCount
     };
 
+  private:
+    /// @brief Used to convert a skill enum to a skill name.
+    static const char *const kSkillNames[kCount];
+
+    /// @brief Offset from raw skill IDs to the skill enumeration values.
+    static const unsigned int kOffset = 6;
+
+  public:
     static bool IsSkill(unsigned int id);
     static t FromId(unsigned int id);
     static const char *Str(t slot);
-}
+};
 
 #endif /* __SKYRIM_UNCAPPER_AE_SKILL_SLOT_H__ */

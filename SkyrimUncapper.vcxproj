@@ -24,18 +24,21 @@
     <ClCompile Include="RelocPatch.cpp" />
     <ClCompile Include="SafeMemSet.cpp" />
     <ClCompile Include="Settings.cpp" />
+    <ClCompile Include="SkillSlot.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="addr_lib\versionlibdb.h" />
     <ClInclude Include="Compare.h" />
     <ClInclude Include="HookWrappers.h" />
     <ClInclude Include="Hook_Skill.h" />
+    <ClInclude Include="Ini.h" />
     <ClInclude Include="RelocFn.h" />
     <ClInclude Include="RelocPatch.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="SafeMemSet.h" />
     <ClInclude Include="Settings.h" />
     <ClInclude Include="simpleini\SimpleIni.h" />
+    <ClInclude Include="SkillSlot.h" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="HookWrappers.asm">

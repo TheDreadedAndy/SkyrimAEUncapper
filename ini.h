@@ -5,8 +5,8 @@
  * @bug No known bugs.
  */
 
-#ifndef __SKYRIM_UNCAPPER_AE_SETTINGS_H__
-#define __SKYRIM_UNCAPPER_AE_SETTINGS_H__
+#ifndef __SKYRIM_UNCAPPER_AE_INI_H__
+#define __SKYRIM_UNCAPPER_AE_INI_H__
 
 #include <string>
 
@@ -63,12 +63,12 @@ ReadIniValue<bool>(
     return ini.GetBoolValue(section, key, default_val);
 }
 
-template <> inline std::string
-ReadIniValue<std::string>(
+template <> inline const char *
+ReadIniValue<const char *>(
     CSimpleIniA &ini,
     const char *section,
     const char *key,
-    std::string default_val
+    const char *default_val
 ) {
     return ini.GetValue(section, key, default_val);
 }
@@ -86,7 +86,7 @@ template <typename T> inline void SaveIniValue(
     const char *comment
 );
 
-template <> inline float
+template <> inline void
 SaveIniValue<float>(
     CSimpleIniA &ini,
     const char *section,
@@ -97,7 +97,7 @@ SaveIniValue<float>(
     ASSERT(ini.SetDoubleValue(section, key, val, comment));
 }
 
-template <> inline unsigned int
+template <> inline void
 SaveIniValue<unsigned int>(
     CSimpleIniA &ini,
     const char *section,
@@ -108,7 +108,7 @@ SaveIniValue<unsigned int>(
     ASSERT(ini.SetLongValue(section, key, val, comment));
 }
 
-template <> inline bool
+template <> inline void
 SaveIniValue<bool>(
     CSimpleIniA &ini,
     const char *section,
@@ -119,12 +119,12 @@ SaveIniValue<bool>(
     ASSERT(ini.SetBoolValue(section, key, val, comment));
 }
 
-template <> inline std::string
-SaveIniValue<std::string>(
+template <> inline void
+SaveIniValue<const char *>(
     CSimpleIniA &ini,
     const char *section,
     const char *key,
-    std::string val,
+    const char *val,
     const char *comment
 ) {
     ASSERT(ini.SetValue(section, key, val, comment));
@@ -193,4 +193,4 @@ class SectionField {
     }
 };
 
-#endif /* __SKYRIM_UNCAPPER_AE_SETTINGS_H__ */
+#endif /* __SKYRIM_UNCAPPER_AE_INI_H__ */

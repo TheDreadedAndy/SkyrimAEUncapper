@@ -7,10 +7,31 @@
 
 #include "SkillSlot.h"
 
+const char *const SkillSlot::kSkillNames[kCount] = {
+    "OneHanded",
+    "TwoHanded",
+    "Marksman",
+    "Block",
+    "Smithing",
+    "HeavyArmor",
+    "LightArmor",
+    "Pickpocket",
+    "LockPicking",
+    "Sneak",
+    "Alchemy",
+    "SpeechCraft",
+    "Alteration",
+    "Conjuration",
+    "Destruction",
+    "Illusion",
+    "Restoration",
+    "Enchanting"
+};
+
 /**
  * @brief Checks if the given attribute ID is a skill ID.
  */
-static bool
+bool
 SkillSlot::IsSkill(
     unsigned int id
 ) {
@@ -24,7 +45,7 @@ SkillSlot::IsSkill(
  *
  * @param id The ID to be converted.
  */
-static SkillSlot::t
+SkillSlot::t
 SkillSlot::FromId(
     unsigned int id
 ) {
@@ -39,10 +60,10 @@ SkillSlot::FromId(
  *
  * @param slot The skill to convert.
  */
-static const char *
+const char *
 SkillSlot::Str(
     t slot
 ) {
-    ASSERT(IsSkill(id));
+    ASSERT(IsSkill(slot));
     return kSkillNames[slot];
 }
