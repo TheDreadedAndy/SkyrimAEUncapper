@@ -13,7 +13,7 @@
 .CODE
 
 EXTERN GetSkillCap_Hook:PROC
-EXTERN GetEffectiveSkillLevel_ReturnTrampoline:PTR
+EXTERN PlayerAVOGetCurrent_ReturnTrampoline:PTR
 EXTERN DisplayTrueSkillLevel_ReturnTrampoline:PTR
 
 EXTERN ImprovePlayerSkillPoints_ReturnTrampoline:PTR
@@ -86,21 +86,21 @@ SkillCapPatch_Wrapper PROC PUBLIC
     ret
 SkillCapPatch_Wrapper ENDP
 
-; This function allows us to call the OG GetEffectiveSkillLevel function by
+; This function allows us to call the OG PlayerAVOGetCurrent function by
 ; running the overwritten instructions and then jumping to the address after
 ; our hook.
-GetEffectiveSkillLevel_Original PROC PUBLIC
+PlayerAVOGetCurrent_Original PROC PUBLIC
     mov r11, rsp
     push rbp
     push rsi
     push rdi
-    jmp GetEffectiveSkillLevel_ReturnTrampoline
-GetEffectiveSkillLevel_Original ENDP
+    jmp PlayerAVOGetCurrent_ReturnTrampoline
+PlayerAVOGetCurrent_Original ENDP
 
 ; Forces the code which displays skill values in the skills menu to show the
 ; true skill level instead of the damaged value by calling the OG function.
 DisplayTrueSkillLevel_Hook PROC PUBLIC
-    call GetEffectiveSkillLevel_Original ; Replacing a call, no need to save.
+    call PlayerAVOGetCurrent_Original ; Replacing a call, no need to save.
     cvttss2si ecx, xmm0
     jmp DisplayTrueSkillLevel_ReturnTrampoline
 DisplayTrueSkillLevel_Hook ENDP

@@ -626,15 +626,14 @@ class Settings {
 
     bool ReadConfig(const std::string& path);
 
-    bool IsManagedSkill(unsigned int skill_id);
-    float GetSkillCap(unsigned int skill_id);
-    float GetSkillFormulaCap(unsigned int skill_id);
+    float GetSkillCap(ActorAttribute::t skill);
+    float GetSkillFormulaCap(ActorAttribute::t skill);
     unsigned int GetPerkDelta(unsigned int player_level);
-    float GetSkillExpGainMult(unsigned int skill_id, unsigned int skill_level,
+    float GetSkillExpGainMult(ActorAttribute::t skill, unsigned int skill_level,
                               unsigned int player_level);
-    float GetLevelSkillExpMult(unsigned int skill_id, unsigned int skill_level,
+    float GetLevelSkillExpMult(ActorAttribute::t skill, unsigned int skill_level,
                                unsigned int player_level);
-    void GetAttributeLevelUp(unsigned int player_level, ActorAttribute attr,
+    void GetAttributeLevelUp(unsigned int player_level, ActorAttribute::t attr,
                              ActorAttributeLevelUp &level_up);
     bool IsLegendaryButtonVisible(unsigned int skill_level);
     bool IsLegendaryAvailable(unsigned int skill_level);

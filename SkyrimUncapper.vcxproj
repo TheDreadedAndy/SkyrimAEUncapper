@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ActorAttribute.cpp" />
     <ClCompile Include="Hook_Skill.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="RelocPatch.cpp" />

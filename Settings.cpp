@@ -188,23 +188,13 @@ Settings::ReadConfig(
 }
 
 /**
- * @brief Checks if the given skill ID is one that this mod interacts with.
- */
-bool
-Settings::IsManagedSkill(
-    unsigned int skill_id
-) {
-    return SkillSlot::IsSkill(skill_id);
-}
-
-/**
  * @brief Gets the skill cap for the given skill ID.
  */
 float
 Settings::GetSkillCap(
-    unsigned int skill_id
+    ActorAttribute::t skill
 ) {
-    return skillCaps.Get(SkillSlot::FromId(skill_id)).Get();
+    return skillCaps.Get(SkillSlot::FromAttribute(skill)).Get();
 }
 
 /**
@@ -212,9 +202,9 @@ Settings::GetSkillCap(
  */
 float
 Settings::GetSkillFormulaCap(
-    unsigned int skill_id
+    ActorAttribute::t skill
 ) {
-    return skillFormulaCaps.Get(SkillSlot::FromId(skill_id)).Get();
+    return skillFormulaCaps.Get(SkillSlot::FromAttribute(skill)).Get();
 }
 
 /**
@@ -237,14 +227,14 @@ Settings::GetPerkDelta(
  */
 float
 Settings::GetSkillExpGainMult(
-    unsigned int skill_id,
+    ActorAttribute::t skill,
     unsigned int skill_level,
     unsigned int player_level
 ) {
-    SkillSlot::t skill = SkillSlot::FromId(skill_id);
-    float base_mult = skillExpGainMults.Get(skill).Get();
-    float skill_mult = skillExpGainMultsWithSkills.Get(skill).GetNearest(skill_level);
-    float pc_mult = skillExpGainMultsWithPCLevel.Get(skill).GetNearest(player_level);
+    SkillSlot::t slot = SkillSlot::FromAttribute(skill);
+    float base_mult = skillExpGainMults.Get(slot).Get();
+    float skill_mult = skillExpGainMultsWithSkills.Get(slot).GetNearest(skill_level);
+    float pc_mult = skillExpGainMultsWithPCLevel.Get(slot).GetNearest(player_level);
     return base_mult * skill_mult * pc_mult;
 }
 
@@ -257,14 +247,14 @@ Settings::GetSkillExpGainMult(
  */
 float
 Settings::GetLevelSkillExpMult(
-    unsigned int skill_id,
+    ActorAttribute::t skill,
     unsigned int skill_level,
     unsigned int player_level
 ) {
-    SkillSlot::t skill = SkillSlot::FromId(skill_id);
-    float base_mult = levelSkillExpMults.Get(skill).Get();
-    float skill_mult = levelSkillExpMultsWithSkills.Get(skill).GetNearest(skill_level);
-    float pc_mult = levelSkillExpMultsWithPCLevel.Get(skill).GetNearest(player_level);
+    SkillSlot::t slot = SkillSlot::FromAttribute(skill);
+    float base_mult = levelSkillExpMults.Get(slot).Get();
+    float skill_mult = levelSkillExpMultsWithSkills.Get(slot).GetNearest(skill_level);
+    float pc_mult = levelSkillExpMultsWithPCLevel.Get(slot).GetNearest(player_level);
     return base_mult * skill_mult * pc_mult;
 }
 
@@ -278,7 +268,7 @@ Settings::GetLevelSkillExpMult(
 void
 Settings::GetAttributeLevelUp(
     unsigned int player_level,
-    ActorAttribute choice,
+    ActorAttribute::t choice,
     ActorAttributeLevelUp &level_up
 ) {
     unsigned int health = 0, magicka = 0, stamina = 0, carry_weight = 0;

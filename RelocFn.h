@@ -16,8 +16,8 @@
 float *GetFloatGameSetting(const char *var);
 UInt16 GetPlayerLevel(void);
 void *GetPlayerActorValueOwner(void);
-float GetBaseActorValue(void *actor, UInt32 skill_id);
-void PlayerAVOModBase(ActorAttribute attr, float val);
-void PlayerAVOModCurrent(UInt32 unk1, ActorAttribute attr, float val);
+float PlayerAVOGetBase(ActorAttribute::t attr);
+void PlayerAVOModBase(ActorAttribute::t attr, float val);
+void PlayerAVOModCurrent(UInt32 unk1, ActorAttribute::t attr, float val);
 
 #endif /* __SKYRIM_UNCAPPER_AE_RELOC_FN_H__ */

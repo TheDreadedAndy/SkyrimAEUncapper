@@ -9,13 +9,13 @@
 #define __SKYRIM_UNCAPPER_AE_HOOK_WRAPPERS_H__
 
 extern "C" void SkillCapPatch_Wrapper(void);
-extern "C" float GetEffectiveSkillLevel_Original(void*, UInt32);
+extern "C" float PlayerAVOGetCurrent_Original(void *av, ActorAttribute::t skill);
 extern "C" void DisplayTrueSkillLevel_Hook(void);
 
 extern "C" void ImproveLevelExpBySkillLevel_Wrapper(void);
 extern "C" void ImprovePlayerSkillPoints_Original(
     void *skill_data,
-    UInt32 skill_id,
+    ActorAttribute::t skill,
     float exp,
     UInt64 unk1,
     UInt32 unk2,

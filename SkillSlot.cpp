@@ -29,16 +29,6 @@ const char *const SkillSlot::kSkillNames[kCount] = {
 };
 
 /**
- * @brief Checks if the given attribute ID is a skill ID.
- */
-bool
-SkillSlot::IsSkill(
-    unsigned int id
-) {
-    return (kOffset <= id) && (id < (kOffset + kCount));
-}
-
-/**
  * @brief Converts the given skill ID to a player skill enumeration.
  *
  * The provided ID must be valid.
@@ -46,11 +36,11 @@ SkillSlot::IsSkill(
  * @param id The ID to be converted.
  */
 SkillSlot::t
-SkillSlot::FromId(
-    unsigned int id
+SkillSlot::FromAttribute(
+    ActorAttribute::t attr
 ) {
-    ASSERT(IsSkill(id));
-    return static_cast<t>(id - kOffset);
+    ASSERT(ActorAttribute::IsSkill(attr));
+    return static_cast<t>(static_cast<int>(attr) - kOffset);
 }
 
 /**

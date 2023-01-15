@@ -14,15 +14,40 @@
  * These IDs match the games internal IDs, and are simply passed directly to
  * the game.
  */
-enum class ActorAttribute {
-    Health = 0x18,
-    Magicka,
-    Stamina,
-    CarryWeight = 0x20
+class ActorAttribute {
+  public:
+    enum t {
+        /* 0x00 - 0x05 unknown */
+        OneHanded = 0x06,
+        TwoHanded,
+        Marksman,
+        Block,
+        Smithing,
+        HeavyArmor,
+        LightArmor,
+        Pickpocket,
+        LockPicking,
+        Sneak,
+        Alchemy,
+        SpeechCraft,
+        Alteration,
+        Conjuration,
+        Destruction,
+        Illusion,
+        Restoration,
+        Enchanting,
+        Health,
+        Magicka,
+        Stamina,
+        /* 0x1b - 0x1f unknown */
+        CarryWeight = 0x20
+    };
+
+    static bool IsSkill(t attr);
 };
 
 /**
- * @brief Contains the delta value for each attribute at a given level up.
+ * @brief Contains the delta value for each body attribute at a given level up.
  */
 struct ActorAttributeLevelUp {
     float health;

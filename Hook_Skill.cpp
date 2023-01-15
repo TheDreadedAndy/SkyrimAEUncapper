@@ -22,30 +22,13 @@
 #include "ActorAttribute.h"
 
 /**
- * @brief Gets the base level of a skill on the player character.
- *
- * The player pointer offset here is a magic constant. It seems to be accessing
- * the actorState field in the object (which is private).
- *
- * @param skill_id The ID of the skill to get the base level of.
- */
-static unsigned int
-GetPlayerBaseSkillLevel(
-    unsigned int skill_id
-) {
-    return static_cast<unsigned int>(
-        GetBaseActorValue(GetPlayerActorValueOwner(), skill_id)
-    );
-}
-
-/**
  * @brief Determines the real skill cap of the given skill.
  */
 extern "C" float
 GetSkillCap_Hook(
-    UInt32 skill_id
+    ActorAttribute::t skill
 ) {
-    return settings.GetSkillCap(skill_id);
+    return settings.GetSkillCap(skill);
 }
 
 /**
@@ -79,14 +62,14 @@ CalculateChargePointsPerUse_Hook(
  *        the INI file.
  */
 float
-GetEffectiveSkillLevel_Hook(
+PlayerAVOGetCurrent_Hook(
     void *av,
-    UInt32 skill_id
+    ActorAttribute::t attr
 ) {
-    float val = GetEffectiveSkillLevel_Original(av, skill_id);
+    float val = PlayerAVOGetCurrent_Original(av, attr);
 
-    if (settings.IsManagedSkill(skill_id)) {
-        float cap = settings.GetSkillFormulaCap(skill_id);
+    if (ActorAttribute::IsSkill(attr)) {
+        float cap = settings.GetSkillFormulaCap(attr);
         val = MAX(0, MIN(val, cap));
     }
 
@@ -98,23 +81,23 @@ GetEffectiveSkillLevel_Hook(
  */
 void
 ImprovePlayerSkillPoints_Hook(
-    PlayerSkills* skill_data,
-    UInt32 skill_id,
+    PlayerSkills *skill_data,
+    ActorAttribute::t attr,
     float exp,
     UInt64 unk1,
     UInt32 unk2,
     UInt8 unk3,
     bool unk4
 ) {
-    if (settings.IsManagedSkill(skill_id)) {
+    if (ActorAttribute::IsSkill(attr)) {
         exp *= settings.GetSkillExpGainMult(
-            skill_id,
-            GetPlayerBaseSkillLevel(skill_id),
+            attr,
+            PlayerAVOGetBase(attr),
             GetPlayerLevel()
         );
     }
 
-    ImprovePlayerSkillPoints_Original(skill_data, skill_id, exp, unk1, unk2, unk3, unk4);
+    ImprovePlayerSkillPoints_Original(skill_data, attr, exp, unk1, unk2, unk3, unk4);
 }
 
 /**
@@ -143,12 +126,12 @@ ModifyPerkPool_Hook(
 extern "C" float
 ImproveLevelExpBySkillLevel_Hook(
     float exp,
-    UInt32 skill_id
+    ActorAttribute::t attr
 ) {
-    if (settings.IsManagedSkill(skill_id)) {
+    if (ActorAttribute::IsSkill(attr)) {
         exp *= settings.GetLevelSkillExpMult(
-            skill_id,
-            GetPlayerBaseSkillLevel(skill_id),
+            attr,
+            PlayerAVOGetBase(attr),
             GetPlayerLevel()
         );
     }
@@ -167,7 +150,7 @@ ImproveLevelExpBySkillLevel_Hook(
 void
 ImproveAttributeWhenLevelUp_Hook(
     void *player_avo,
-    ActorAttribute choice
+    ActorAttribute::t choice
 ) {
     (void)player_avo;
     ActorAttributeLevelUp level_up;
@@ -204,10 +187,10 @@ LegendaryResetSkillLevel_Hook(
 extern "C" bool
 CheckConditionForLegendarySkill_Hook(
     void *player_actor,
-    UInt32 skill_id
+    ActorAttribute::t skill
 ) {
-    float skill_level = GetBaseActorValue(player_actor, skill_id);
-    return settings.IsLegendaryAvailable(skill_id);
+    float skill_level = PlayerAVOGetBase(skill);
+    return settings.IsLegendaryAvailable(skill);
 }
 
 /**
@@ -217,8 +200,8 @@ CheckConditionForLegendarySkill_Hook(
 extern "C" bool
 HideLegendaryButton_Hook(
     void *player_actor,
-    UInt32 skill_id
+    ActorAttribute::t skill
 ) {
-    float skill_level = GetBaseActorValue(player_actor, skill_id);
+    float skill_level = PlayerAVOGetBase(skill);
     return settings.IsLegendaryButtonVisible(skill_level);
 }

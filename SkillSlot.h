@@ -8,6 +8,8 @@
 #ifndef __SKYRIM_UNCAPPER_AE_SKILL_SLOT_H__
 #define __SKYRIM_UNCAPPER_AE_SKILL_SLOT_H__
 
+#include "ActorAttribute.h"
+
 /**
  * @brief Encodes the various skill slots of the player.
  */
@@ -16,8 +18,9 @@ class SkillSlot {
     /**
      * @brief Encodes the skills in the order of their IDs.
      *
-     * Note that we must subtract 6 from a skill ID to convert it to this enum.
-     * As such, the order of the values in this enumeration MUST NOT be changed.
+     * Note that we must subtract 6 from an ActorAttribute to convert it to
+     * this enum. As such, the order of the values in this enumeration 
+     * MUST NOT be changed.
      */
     enum t {
         OneHanded,
@@ -49,8 +52,7 @@ class SkillSlot {
     static const unsigned int kOffset = 6;
 
   public:
-    static bool IsSkill(unsigned int id);
-    static t FromId(unsigned int id);
+    static t FromAttribute(ActorAttribute::t attr);
     static const char *Str(t slot);
 };
 

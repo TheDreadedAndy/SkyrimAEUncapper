@@ -14,7 +14,7 @@
  * Note that many of these signatures and the associated assembly code were
  * found by the other authors which worked on this mod. I (Kasplat)
  * converted each one to an address-independence ID. Additionally, a new
- * signature for GetEffectiveSkillLevel() was found and DisplayTrueSkillLevel
+ * signature for PlayerAVOGetCurrent() was found and DisplayTrueSkillLevel
  * was added.
  *
  * Note that we do not allow non-portable structures to leave this file. That
@@ -206,7 +206,7 @@ struct CodeSignature {
 extern "C" {
     uintptr_t ImprovePlayerSkillPoints_ReturnTrampoline;
     uintptr_t ModifyPerkPool_ReturnTrampoline;
-    uintptr_t GetEffectiveSkillLevel_ReturnTrampoline;
+    uintptr_t PlayerAVOGetCurrent_ReturnTrampoline;
     uintptr_t DisplayTrueSkillLevel_ReturnTrampoline;
     uintptr_t CheckConditionForLegendarySkill_ReturnTrampoline;
     uintptr_t HideLegendaryButton_ReturnTrampoline;
@@ -225,11 +225,11 @@ static void **gameSettings;
  * @brief Holds the function pointers which we use to call the game functions.
  */
 ///@{
-static float (*GetBaseActorValue_Entry)(void*, UInt32);
 static UInt16 (*GetLevel_Entry)(void*);
 static Setting *(*GetGameSetting_Entry)(void*, const char*);
-static void (*PlayerAVOModBase_Entry)(void*, ActorAttribute, float);
-static void (*PlayerAVOModCurrent_Entry)(void*, UInt32, ActorAttribute, float);
+static float (*PlayerAVOGetBase_Entry)(void*, ActorAttribute::t);
+static void (*PlayerAVOModBase_Entry)(void*, ActorAttribute::t, float);
+static void (*PlayerAVOModCurrent_Entry)(void*, UInt32, ActorAttribute::t, float);
 ///@}
 
 /**
@@ -260,21 +260,21 @@ static const CodeSignature kGetLevel_FunctionSig(
 );
 
 /**
- * @brief The code signature used to find the games GetBaseActorValue() fn.
- */
-static const CodeSignature kGetBaseActorValue_FunctionSig(
-    /* name */   "GetBaseActorValue",
-    /* id */     38464,
-    /* result */ reinterpret_cast<void**>(&GetBaseActorValue_Entry)
-);
-
-/**
  * @brief Gets a game setting in the settings collection.
  */
 static const CodeSignature kGetGameSetting_FunctionSig(
     /* name */   "GetGameSetting",
     /* id */     22788,
     /* result */ reinterpret_cast<void**>(&GetGameSetting_Entry)
+);
+
+/**
+* @brief The code signature used to find the games GetBaseActorValue() fn.
+*/
+static const CodeSignature kPlayerAVOGetBase_FunctionSig(
+    /* name */   "PlayerAVOGetBase",
+    /* id */     38464,
+    /* result */ reinterpret_cast<void**>(&PlayerAVOGetBase_Entry)
 );
 
 /**
@@ -359,28 +359,28 @@ static const CodeSignature kCalculateChargePointsPerUse_PatchSig(
  * hook to call the original implementation. The assembly wrapper reimplements
  * the first 6 bytes, then jumps to the instruction after the hook.
  */
-static const CodeSignature kGetEffectiveSkillLevel_PatchSig(
-    /* name */       "GetEffectiveSkillLevel",
+static const CodeSignature kPlayerAVOGetCurrent_PatchSig(
+    /* name */       "PlayerAVOGetCurrent",
     /* hook_type */  HookType::Jump6,
-    /* hook */       reinterpret_cast<uintptr_t>(GetEffectiveSkillLevel_Hook),
+    /* hook */       reinterpret_cast<uintptr_t>(PlayerAVOGetCurrent_Hook),
     /* id */         38462,
     /* patch_size */ 6,
-    /* trampoline */ &GetEffectiveSkillLevel_ReturnTrampoline
+    /* trampoline */ &PlayerAVOGetCurrent_ReturnTrampoline
 );
 
 /**
- * @brief Overwrites the skill display GetEffectiveSkillLevel() call to display
+ * @brief Overwrites the skill display PlayerAVOGetCurrent() call to display
  *        the actual, non-damaged, skill level.
  *
- * The function that is overwritten by our GetEffectiveSkillLevel() hook is also
+ * The function that is overwritten by our PlayerAVOGetCurrent() hook is also
  * used to display the skill level in the skills menu.
  *
  * So as to not confuse players, this hook is used to force the skills menu to
  * show the actual skill level, not the damaged value.
  *
  * This hook replaces the call instruction which would call
- * GetEffectiveSkillLevel() with a call to our reimplemented
- * GetEffectiveSkillLevel_Original().
+ * PlayerAVOGetCurrent() with a call to our reimplemented
+ * PlayerAVOGetCurrent_Original().
  */
 static const CodeSignature kDisplayTrueSkillLevel_PatchSig(
     /* name */       "DisplayTrueSkillLevel",
@@ -452,6 +452,15 @@ static const CodeSignature kImproveLevelExpBySkillLevel_PatchSig(
 /**
  * @brief Overwrites the attribute level-up function to adjust the gains based
  *        on the players attribute selection.
+ * 
+ * We inject this patch just after the player has made their attribute selection,
+ * and replace what would have been a call to player_avo->ModBase(...). Then,
+ * we manually invoke ModBase and ModCurrent for the attributes and carry weight
+ * as specified in the INI file.
+ * 
+ * Note that this patch overwrites the carry weight change done in the games code
+ * as well. It also means the game settings which would usually control these
+ * attributes are ignored.
  */
 static const CodeSignature kImproveAttributeWhenLevelUp_PatchSig(
     /* name */       "ImproveAttributeWhenLevelUp",
@@ -461,22 +470,6 @@ static const CodeSignature kImproveAttributeWhenLevelUp_PatchSig(
     /* patch_size */ 0x2b,
     /* trampoline */ nullptr,
     /* offset */     0x93
-);
-
-/**
- * @brief Allows health and magicka level ups to improve carry weight.
- *
- * This patch simply overwrites the branch instruction which would skip carry
- * weight improvement for health/magicka with NOPs.
- */
-static const CodeSignature kAllowAllAttrImproveCarryWeight_PatchSig(
-    /* name */       "AllowAllAttrImproveCarryWeight",
-    /* hook_type */  HookType::Nop,
-    /* hook */       0,
-    /* id */         51917,
-    /* patch_size */ 2,
-    /* trampoline */ nullptr,
-    /* offset */     0x9a
 );
 
 /**
@@ -545,14 +538,14 @@ static const CodeSignature *const kGameSignatures[] = {
     &kThePlayer_ObjectSig,
     &kGameSettingCollection_ObjectSig,
     &kGetLevel_FunctionSig,
-    &kGetBaseActorValue_FunctionSig,
     &kGetGameSetting_FunctionSig,
+    &kPlayerAVOGetBase_FunctionSig,
     &kPlayerAVOModBase_FunctionSig,
     &kPlayerAVOModCurrent_FunctionSig,
 
     &kSkillCapPatch_PatchSig,
     &kCalculateChargePointsPerUse_PatchSig,
-    &kGetEffectiveSkillLevel_PatchSig,
+    &kPlayerAVOGetCurrent_PatchSig,
     &kDisplayTrueSkillLevel_PatchSig,
 
     &kImproveSkillByTraining_PatchSig,
@@ -560,7 +553,6 @@ static const CodeSignature *const kGameSignatures[] = {
     &kModifyPerkPool_PatchSig,
     &kImproveLevelExpBySkillLevel_PatchSig,
     &kImproveAttributeWhenLevelUp_PatchSig,
-    &kAllowAllAttrImproveCarryWeight_PatchSig,
 
     &kLegendaryResetSkillLevel_PatchSig,
     &kCheckConditionForLegendarySkill_PatchSig,
@@ -574,6 +566,27 @@ static const uint8_t kNop = 0x90;
 
 /// @brief The running version of skyrim.
 static unsigned int runningSkyrimVersion;
+
+/**
+* @brief Gets the actor value owner field of the player.
+*
+* The location of this field is dependent on the running version of the game.
+* As such, we must case on that.
+*
+* Versions before 1.6.629 store it at offset 0xB0. From that version on, it
+* is at offset 0xB8.
+*
+* @return The actor value owner of the player.
+*/
+static void *
+GetPlayerActorValueOwner() {
+    ASSERT(playerObject);
+    ASSERT(*playerObject);
+
+    size_t avo_offset = (runningSkyrimVersion >= RUNTIME_VERSION_1_6_629)
+        ? 0xB8 : 0xB0;
+    return reinterpret_cast<char*>(*playerObject) + avo_offset;
+}
 
 /**
  * @brief Locates all the signatures necessary for this plugin, and calculates
@@ -725,27 +738,6 @@ GetFloatGameSetting(
 }
 
 /**
- * @brief Gets the actor value owner field of the player.
- *
- * The location of this field is dependent on the running version of the game.
- * As such, we must case on that.
- *
- * Versions before 1.6.629 store it at offset 0xB0. From that version on, it
- * is at offset 0xB8.
- *
- * @return The actor value owner of the player.
- */
-void *
-GetPlayerActorValueOwner() {
-    ASSERT(playerObject);
-    ASSERT(*playerObject);
-
-    size_t avo_offset = (runningSkyrimVersion >= RUNTIME_VERSION_1_6_629)
-                      ? 0xB8 : 0xB0;
-    return reinterpret_cast<char*>(*playerObject) + avo_offset;
-}
-
-/**
 * @brief Gets the level of the player.
 */
 UInt16
@@ -757,17 +749,15 @@ GetPlayerLevel() {
 }
 
 /**
- * @brief Gets the base value of the attribute for the given actor.
- * @param actor The actor to get the base value of.
- * @param skill_id The ID of the skill to get the base level of.
+ * @brief Gets the base value of an attribute of the player.
+ * @param attr The attribute to get the base value of.
  */
 float
-GetBaseActorValue(
-    void *actor,
-    UInt32 skill_id
+PlayerAVOGetBase(
+    ActorAttribute::t attr
 ) {
-    ASSERT(GetBaseActorValue_Entry);
-    return GetBaseActorValue_Entry(actor, skill_id);
+    ASSERT(PlayerAVOGetBase_Entry);
+    return PlayerAVOGetBase_Entry(GetPlayerActorValueOwner(), attr);
 }
 
 /**
@@ -777,7 +767,7 @@ GetBaseActorValue(
  */
 void
 PlayerAVOModBase(
-    ActorAttribute attr,
+    ActorAttribute::t attr,
     float val
 ) {
     ASSERT(PlayerAVOModBase_Entry);
@@ -793,7 +783,7 @@ PlayerAVOModBase(
 void
 PlayerAVOModCurrent(
     UInt32 unk1,
-    ActorAttribute attr,
+    ActorAttribute::t attr,
     float val
 ) {
     ASSERT(PlayerAVOModCurrent_Entry);
