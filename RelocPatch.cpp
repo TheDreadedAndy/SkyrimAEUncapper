@@ -355,7 +355,7 @@ static const CodeSignature kCalculateChargePointsPerUse_PatchSig(
     /* name */       "CalculateChargePointsPerUse",
     /* enabled */    []() { return settings.IsEnchantPatchEnabled(); },
     /* hook_type */  HookType::Call5,
-    /* hook */       reinterpret_cast<uintptr_t>(CalculateChargePointsPerUse_Hook),
+    /* hook */       reinterpret_cast<uintptr_t>(CalculateChargePointsPerUse_Wrapper),
     /* id */         51449,
     /* patch_size */ 5,
     /* trampoline */ nullptr,

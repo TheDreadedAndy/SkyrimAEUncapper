@@ -13,6 +13,7 @@
 .CODE
 
 EXTERN GetSkillCap_Hook:PROC
+EXTERN CalculateChargePointsPerUse_Hook:PROC
 EXTERN PlayerAVOGetCurrent_ReturnTrampoline:PTR
 EXTERN DisplayTrueSkillLevel_ReturnTrampoline:PTR
 
@@ -85,6 +86,17 @@ SkillCapPatch_Wrapper PROC PUBLIC
     END_INJECTED_CALL
     ret
 SkillCapPatch_Wrapper ENDP
+
+; Wraps our CalculateChargePointsPerUse function. We use this wrapper to get
+; access to the maxCharge argument that our caller gets, which is its 5th 
+; argument (rsp + a0). We replace the call to the original function, so no
+; reg save. We're just adding an arg.
+CalculateChargePointsPerUse_Wrapper PROC PUBLIC
+    movss xmm2, dword ptr [rsp + 0a8h]
+    xorps xmm3, xmm3 ; Reimplement max from original code.
+    maxss xmm2, xmm3
+    jmp CalculateChargePointsPerUse_Hook
+CalculateChargePointsPerUse_Wrapper ENDP
 
 ; This function allows us to call the OG PlayerAVOGetCurrent function by
 ; running the overwritten instructions and then jumping to the address after

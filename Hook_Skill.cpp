@@ -40,12 +40,14 @@ GetSkillCap_Hook(
  *
  * @param base_points The base point value for the enchantment.
  * @param enchanting_level The enchanting skill of the player.
+ * @param max_charge The maximum charge level of the item.
  * @return The charge points per use on the item.
  */
-float
+extern "C" float
 CalculateChargePointsPerUse_Hook(
     float base_points,
-    float enchanting_level
+    float enchanting_level,
+    float max_charge
 ) {
     ASSERT(settings.IsEnchantPatchEnabled());
 
@@ -60,10 +62,11 @@ CalculateChargePointsPerUse_Hook(
 
     if (settings.IsEnchantChargeLinear()) {
         // Linearly scale between the normal min/max of charge points.
-        // FIXME: Need to know the maximum number of charges to make the
-        //        number of increased usages actually linear.
-        float slope = (-1 * base * pow(cap * cost_base, cost_scale)) / cap;
-        return slope * enchanting_level + base;
+        float max_level_scale = pow(cap * cost_base, cost_scale);
+        float slope = (max_charge * max_level_scale) / (base * (1.0f - max_level_scale) * cap);
+        float intercept = max_charge / base;
+        float linear_charge = slope * enchanting_level + intercept;
+        return max_charge / linear_charge;
     } else {
         return base * (1.0f - pow(enchanting_level * cost_base, cost_scale));
     }

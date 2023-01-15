@@ -10,7 +10,6 @@
 #include "GameFormComponents.h"
 #include "ActorAttribute.h"
 
-float CalculateChargePointsPerUse_Hook(float base_points, float enchant_level);
 float PlayerAVOGetCurrent_Hook(void *av, ActorAttribute::t skill);
 
 void ImprovePlayerSkillPoints_Hook(

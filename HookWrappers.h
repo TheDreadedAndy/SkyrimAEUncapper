@@ -9,6 +9,7 @@
 #define __SKYRIM_UNCAPPER_AE_HOOK_WRAPPERS_H__
 
 extern "C" void SkillCapPatch_Wrapper(void);
+extern "C" void CalculateChargePointsPerUse_Wrapper(void);
 extern "C" float PlayerAVOGetCurrent_Original(void *av, ActorAttribute::t skill);
 extern "C" void DisplayTrueSkillLevel_Hook(void);
 
