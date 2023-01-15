@@ -845,15 +845,19 @@ ApplyGamePatches(
         return -1;
     }
 
-    _MESSAGE(
-        "Creating a branch trampoline buffer with %zu bytes of space...",
-        alloc_size
-    );
-    if (!g_branchTrampoline.Create(alloc_size, img_base)) {
-        _MESSAGE("Failed to allocate branch trampoline.");
-        return -1;
+    if (alloc_size > 0) {
+        _MESSAGE(
+            "Creating a branch trampoline buffer with %zu bytes of space...",
+            alloc_size
+        );
+        if (!g_branchTrampoline.Create(alloc_size, img_base)) {
+            _MESSAGE("Failed to allocate branch trampoline.");
+            return -1;
+        }
+        _MESSAGE("Done!");
+    } else {
+        _MESSAGE("Everything is disabled...");
     }
-    _MESSAGE("Done!");
 
     PatchGameCode(real_addrs);
 

@@ -60,6 +60,8 @@ CalculateChargePointsPerUse_Hook(
 
     if (settings.IsEnchantChargeLinear()) {
         // Linearly scale between the normal min/max of charge points.
+        // FIXME: Need to know the maximum number of charges to make the
+        //        number of increased usages actually linear.
         float slope = (-1 * base * pow(cap * cost_base, cost_scale)) / cap;
         return slope * enchanting_level + base;
     } else {
@@ -77,6 +79,8 @@ PlayerAVOGetCurrent_Hook(
     ActorAttribute::t attr
 ) {
     ASSERT(settings.IsSkillFormulaCapEnabled());
+    // FIXME: Need to find where this is called in the text color code and
+    //        replace it so the skills menu is actually correct.
 
     float val = PlayerAVOGetCurrent_Original(av, attr);
 

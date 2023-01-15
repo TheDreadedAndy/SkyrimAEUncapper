@@ -50,7 +50,7 @@ const char *const Settings::EnchantSettings::kChargeLevelCapDesc =
     "# The formula breaks above level 199, so values above that will be ignored.\n"
     "# This value is also capped by the enchanting skill formula cap.";
 const char *const Settings::EnchantSettings::kUseLinearChargeFormulaDesc =
-    "# Forces the game to use a linear formula for charge level-based weapon\n"
+    "# Forces the game to use a linear formula for level-based weapon\n"
     "# charge calculation. Useful if the charge cap is close to 199, as the\n"
     "# later level-ups in enchanting will give massive boosts to the number\n"
     "# of charge points available.";
