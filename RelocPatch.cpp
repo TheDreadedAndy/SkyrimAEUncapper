@@ -239,6 +239,7 @@ static void **gameSettings;
 static UInt16 (*GetLevel_Entry)(void*);
 static Setting *(*GetGameSetting_Entry)(void*, const char*);
 static float (*PlayerAVOGetBase_Entry)(void*, ActorAttribute::t);
+static float (*PlayerAVOGetCurrent_Entry)(void*, ActorAttribute::t);
 static void (*PlayerAVOModBase_Entry)(void*, ActorAttribute::t, float);
 static void (*PlayerAVOModCurrent_Entry)(void*, UInt32, ActorAttribute::t, float);
 ///@}
@@ -280,12 +281,21 @@ static const CodeSignature kGetGameSetting_FunctionSig(
 );
 
 /**
-* @brief The code signature used to find the games GetBaseActorValue() fn.
-*/
+ * @brief The code signature used to find the games PlayerAVOGetBase() fn.
+ */
 static const CodeSignature kPlayerAVOGetBase_FunctionSig(
     /* name */   "PlayerAVOGetBase",
     /* id */     38464,
     /* result */ reinterpret_cast<void**>(&PlayerAVOGetBase_Entry)
+);
+
+/**
+ * @brief The code signature used to find the games PlayerAVOGetCurrent() fn.
+ */
+static const CodeSignature kPlayerAVOGetCurrent_FunctionSig(
+    /* name */   "PlayerAVOGetCurrent",
+    /* id */     38462,
+    /* result */ reinterpret_cast<void**>(&PlayerAVOGetCurrent_Entry)
 );
 
 /**
@@ -374,7 +384,7 @@ static const CodeSignature kCalculateChargePointsPerUse_PatchSig(
  * the first 6 bytes, then jumps to the instruction after the hook.
  */
 static const CodeSignature kPlayerAVOGetCurrent_PatchSig(
-    /* name */       "PlayerAVOGetCurrent",
+    /* name */       "PlayerAVOGetCurrent (Patch)",
     /* enabled */    []() { return settings.IsSkillFormulaCapEnabled(); },
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(PlayerAVOGetCurrent_Hook),
@@ -420,11 +430,10 @@ static const CodeSignature kDisplayTrueSkillColor_PatchSig(
     /* enabled */    []() { return settings.IsSkillFormulaCapEnabled(); },
     /* hook_type */  HookType::Call6,
     /* hook */       reinterpret_cast<uintptr_t>(DisplayTrueSkillColor_Hook),
-    /* id */         0,
+    /* id */         52945,
     /* patch_size */ 10,
     /* trampoline */ nullptr,
-    /* offset */     0x32,
-    /* known */      0x91C890
+    /* offset */     0x32
 );
 
 /**
@@ -583,6 +592,7 @@ static const CodeSignature *const kGameSignatures[] = {
     &kGetLevel_FunctionSig,
     &kGetGameSetting_FunctionSig,
     &kPlayerAVOGetBase_FunctionSig,
+    &kPlayerAVOGetCurrent_FunctionSig,
     &kPlayerAVOModBase_FunctionSig,
     &kPlayerAVOModCurrent_FunctionSig,
 
@@ -815,6 +825,33 @@ PlayerAVOGetBase(
 ) {
     ASSERT(PlayerAVOGetBase_Entry);
     return PlayerAVOGetBase_Entry(GetPlayerActorValueOwner(), attr);
+}
+
+/**
+ * @brief Gets the (uncapped) current value of an attribute of the player.
+ * 
+ * This function takes a special path, as the charge formula needs to use it
+ * even if skill formula caps are disabled.
+ *
+ * @param av The player actor value owner.
+ * @param attr The attribute to get the value of.
+ */
+float
+PlayerAVOGetCurrent_Original(
+    void* av,
+    ActorAttribute::t attr
+) {
+    ASSERT(PlayerAVOGetCurrent_Entry);
+    if (settings.IsSkillFormulaCapEnabled()) {
+        // Patch installed, so we need to use the wrapper.
+        ASSERT(PlayerAVOGetCurrent_ReturnTrampoline);
+        return PlayerAVOGetCurrent_OriginalWrapper(av, attr);
+    } else {
+        // No patch installed, so we can just call the original function
+        // (and must, since we don't have a trampoline).
+        ASSERT(PlayerAVOGetCurrent_ReturnTrampoline == 0);
+        return PlayerAVOGetCurrent_Entry(av, attr);
+    }
 }
 
 /**

@@ -57,7 +57,6 @@ CalculateChargePointsPerUse_Hook(
     float cost_mult = *GetFloatGameSetting("fEnchantingSkillCostMult");
     float cap = settings.GetEnchantChargeCap();
     float enchanting_level = MIN(
-        // FIXME: Won't work unless formula caps are enabled.
         PlayerAVOGetCurrent_Original(player_av, ActorAttribute::Enchanting),
         cap
     );

@@ -17,6 +17,7 @@ float *GetFloatGameSetting(const char *var);
 UInt16 GetPlayerLevel(void);
 void *GetPlayerActorValueOwner(void);
 float PlayerAVOGetBase(ActorAttribute::t attr);
+float PlayerAVOGetCurrent_Original(void *av, ActorAttribute::t attr);
 void PlayerAVOModBase(ActorAttribute::t attr, float val);
 void PlayerAVOModCurrent(UInt32 unk1, ActorAttribute::t attr, float val);
 

@@ -102,18 +102,18 @@ CalculateChargePointsPerUse_Wrapper ENDP
 ; This function allows us to call the OG PlayerAVOGetCurrent function by
 ; running the overwritten instructions and then jumping to the address after
 ; our hook.
-PlayerAVOGetCurrent_Original PROC PUBLIC
+PlayerAVOGetCurrent_OriginalWrapper PROC PUBLIC
     mov r11, rsp
     push rbp
     push rsi
     push rdi
     jmp PlayerAVOGetCurrent_ReturnTrampoline
-PlayerAVOGetCurrent_Original ENDP
+PlayerAVOGetCurrent_OriginalWrapper ENDP
 
 ; Forces the code which displays skill values in the skills menu to show the
 ; true skill level instead of the damaged value by calling the OG function.
 DisplayTrueSkillLevel_Hook PROC PUBLIC
-    call PlayerAVOGetCurrent_Original ; Replacing a call, no need to save.
+    call PlayerAVOGetCurrent_OriginalWrapper ; Replacing a call, no need to save.
     cvttss2si ecx, xmm0
     jmp DisplayTrueSkillLevel_ReturnTrampoline
 DisplayTrueSkillLevel_Hook ENDP
@@ -126,7 +126,7 @@ DisplayTrueSkillColor_Hook PROC PUBLIC
              ; move the player AVO vtable into rax, and that offset is version
              ; dependent.
     sub rsp, 20h
-    call PlayerAVOGetCurrent_Original
+    call PlayerAVOGetCurrent_OriginalWrapper
     add rsp, 20h
     pop rax
     ret
