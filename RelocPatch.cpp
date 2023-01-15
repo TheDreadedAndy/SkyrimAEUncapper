@@ -350,16 +350,19 @@ static const CodeSignature kSkillCapPatch_PatchSig(
  *
  * This is a bug fix for the original equation, which gives invalid results for
  * enchantment levels at 200 or above.
+ * 
+ * Note that we also replace the PlayerAVOGetCurrent() call, so that we can
+ * enforce a different formula cap for enchanting charge and magnitude.
  */
 static const CodeSignature kCalculateChargePointsPerUse_PatchSig(
     /* name */       "CalculateChargePointsPerUse",
     /* enabled */    []() { return settings.IsEnchantPatchEnabled(); },
-    /* hook_type */  HookType::Call5,
+    /* hook_type */  HookType::Call6,
     /* hook */       reinterpret_cast<uintptr_t>(CalculateChargePointsPerUse_Wrapper),
     /* id */         51449,
-    /* patch_size */ 5,
+    /* patch_size */ 14,
     /* trampoline */ nullptr,
-    /* offset */     0x333
+    /* offset */     0x32a
 );
 
 /**

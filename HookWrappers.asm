@@ -92,7 +92,8 @@ SkillCapPatch_Wrapper ENDP
 ; argument (rsp + a0). We replace the call to the original function, so no
 ; reg save. We're just adding an arg.
 CalculateChargePointsPerUse_Wrapper PROC PUBLIC
-    movss xmm2, dword ptr [rsp + 0a8h]
+    movss xmm2, dword ptr [rsp + 0a8h] ; Get max_charge.
+    movaps xmm1, xmm7 ; Get base_points
     xorps xmm3, xmm3 ; Reimplement max from original code.
     maxss xmm2, xmm3
     jmp CalculateChargePointsPerUse_Hook

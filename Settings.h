@@ -470,15 +470,18 @@ class Settings {
     class EnchantSettings {
       private:
         static const char *const kSection;
+        static const char *const kMagnitudeLevelCapDesc;
         static const char *const kChargeLevelCapDesc;
         static const char *const kUseLinearChargeFormulaDesc;
 
       public:
+        SectionField<unsigned int> magnitudeLevelCap;
         SectionField<unsigned int> chargeLevelCap;
         SectionField<bool> useLinearChargeFormula;
 
         EnchantSettings(
-        ) : chargeLevelCap("iChargeLevelCap", 199),
+        ) : magnitudeLevelCap("iMagnitudeLevelCap", 100),
+            chargeLevelCap("iChargeLevelCap", 199),
             useLinearChargeFormula("bUseLinearChargeFormula", false)
         {}
 
@@ -607,6 +610,7 @@ class Settings {
 
     float GetSkillCap(ActorAttribute::t skill);
     float GetSkillFormulaCap(ActorAttribute::t skill);
+    float GetEnchantMagnitudeCap(void);
     float GetEnchantChargeCap(void);
     inline bool IsEnchantChargeLinear(void) { return enchant.useLinearChargeFormula.Get(); }
     float GetSkillExpGainMult(ActorAttribute::t skill, unsigned int skill_level,

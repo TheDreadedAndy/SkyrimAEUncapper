@@ -45,6 +45,9 @@ const char *const Settings::GeneralSettings::kEnableLegendaryDesc =
     "# Enables the code which modifies the legendary skill system.";
 
 const char *const Settings::EnchantSettings::kSection = "Enchanting";
+const char *const Settings::EnchantSettings::kMagnitudeLevelCapDesc =
+    "# Sets the formula cap for the enchanting magnitude calculation.\n"
+    "# This value is also capped by the enchanting skill formula cap.";
 const char *const Settings::EnchantSettings::kChargeLevelCapDesc =
     "# Sets the formula cap for the enchanting weapon charge calculation.\n"
     "# The formula breaks above level 199, so values above that will be ignored.\n"
@@ -190,6 +193,7 @@ void
 Settings::EnchantSettings::ReadConfig(
     CSimpleIniA &ini
 ) {
+    magnitudeLevelCap.ReadConfig(ini, kSection);
     chargeLevelCap.ReadConfig(ini, kSection);
     useLinearChargeFormula.ReadConfig(ini, kSection);
 }
@@ -201,6 +205,7 @@ void
 Settings::EnchantSettings::SaveConfig(
     CSimpleIniA &ini
 ) {
+    magnitudeLevelCap.SaveConfig(ini, kSection, kMagnitudeLevelCapDesc);
     chargeLevelCap.SaveConfig(ini, kSection, kChargeLevelCapDesc);
     useLinearChargeFormula.SaveConfig(ini, kSection, kUseLinearChargeFormulaDesc);
 }
@@ -376,11 +381,25 @@ Settings::GetSkillFormulaCap(
 }
 
 /**
+ * @brief The maximum level to use for enchantment magnitude.
+ */
+float
+Settings::GetEnchantMagnitudeCap() {
+    return MIN(
+        enchant.magnitudeLevelCap.Get(),
+        GetSkillFormulaCap(ActorAttribute::Enchanting)
+    );
+}
+
+/**
  * @brief Gets the current enchanting weapon charge cap.
  */
 float
 Settings::GetEnchantChargeCap() {
-    return MIN(199.0, enchant.chargeLevelCap.Get());
+    return MIN(
+        MIN(199.0, enchant.chargeLevelCap.Get()),
+        GetSkillFormulaCap(ActorAttribute::Enchanting)
+    );
 }
 
 /**

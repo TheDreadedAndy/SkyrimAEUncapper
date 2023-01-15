@@ -35,18 +35,18 @@ GetSkillCap_Hook(
 /**
  * @brief Reimplements the enchantment charge point equation.
  *
- * The original equation would fall apart for levels above 199, se this
+ * The original equation would fall apart for levels above 199, so this
  * implementation caps the level in the calculation to 199.
  *
+ * @param player_av The actor value owner from the player class.
  * @param base_points The base point value for the enchantment.
- * @param enchanting_level The enchanting skill of the player.
  * @param max_charge The maximum charge level of the item.
  * @return The charge points per use on the item.
  */
 extern "C" float
 CalculateChargePointsPerUse_Hook(
+    void *player_av,
     float base_points,
-    float enchanting_level,
     float max_charge
 ) {
     ASSERT(settings.IsEnchantPatchEnabled());
@@ -56,8 +56,11 @@ CalculateChargePointsPerUse_Hook(
     float cost_scale = *GetFloatGameSetting("fEnchantingSkillCostScale");
     float cost_mult = *GetFloatGameSetting("fEnchantingSkillCostMult");
     float cap = settings.GetEnchantChargeCap();
+    float enchanting_level = MIN(
+        PlayerAVOGetCurrent_Original(player_av, ActorAttribute::Enchanting),
+        cap
+    );
 
-    enchanting_level = MIN(enchanting_level, cap);
     float base = cost_mult * pow(base_points, cost_exponent);
 
     if (settings.IsEnchantChargeLinear()) {
@@ -68,6 +71,7 @@ CalculateChargePointsPerUse_Hook(
         float linear_charge = slope * enchanting_level + intercept;
         return max_charge / linear_charge;
     } else {
+        // Original game equation.
         return base * (1.0f - pow(enchanting_level * cost_base, cost_scale));
     }
 }
@@ -88,8 +92,14 @@ PlayerAVOGetCurrent_Hook(
     float val = PlayerAVOGetCurrent_Original(av, attr);
 
     if (ActorAttribute::IsSkill(attr)) {
-        float cap = settings.GetSkillFormulaCap(attr);
-        val = MAX(0, MIN(val, cap));
+        val = MAX(0, MIN(val, settings.GetSkillFormulaCap(attr)));
+
+        // If this is a call for enchanting, we enforce the magnitude
+        // cap here. Note that this hook is never called for charge
+        // calculation; we overwrite the code which would have.
+        if (attr == ActorAttribute::Enchanting) {
+            val = MIN(val, settings.GetSkillFormulaCap(ActorAttribute::Enchanting));
+        }
     }
 
     return val;
