@@ -12,6 +12,7 @@ extern "C" void SkillCapPatch_Wrapper(void);
 extern "C" void CalculateChargePointsPerUse_Wrapper(void);
 extern "C" float PlayerAVOGetCurrent_Original(void *av, ActorAttribute::t skill);
 extern "C" void DisplayTrueSkillLevel_Hook(void);
+extern "C" void DisplayTrueSkillColor_Hook(void);
 
 extern "C" void ImproveLevelExpBySkillLevel_Wrapper(void);
 extern "C" void ImprovePlayerSkillPoints_Original(

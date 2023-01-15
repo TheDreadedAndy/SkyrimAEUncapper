@@ -409,6 +409,25 @@ static const CodeSignature kDisplayTrueSkillLevel_PatchSig(
 );
 
 /**
+ * @brief Overwrites the skill color displays call to PlayerAVOGetCurrent to
+ *        call the original function.
+ * 
+ * This patch exists for the same reason as the above patch, except its concern
+ * is in getting the skill number to display as the correct color, not number.
+ */
+static const CodeSignature kDisplayTrueSkillColor_PatchSig(
+    /* name */       "DisplayTrueSkillColor",
+    /* enabled */    []() { return settings.IsSkillFormulaCapEnabled(); },
+    /* hook_type */  HookType::Call6,
+    /* hook */       reinterpret_cast<uintptr_t>(DisplayTrueSkillColor_Hook),
+    /* id */         0,
+    /* patch_size */ 10,
+    /* trampoline */ nullptr,
+    /* offset */     0x32,
+    /* known */      0x91C890
+);
+
+/**
  * @brief Prevents the skill training function from applying our multipliers.
  */
 static const CodeSignature kImproveSkillByTraining_PatchSig(
@@ -571,6 +590,7 @@ static const CodeSignature *const kGameSignatures[] = {
     &kCalculateChargePointsPerUse_PatchSig,
     &kPlayerAVOGetCurrent_PatchSig,
     &kDisplayTrueSkillLevel_PatchSig,
+    &kDisplayTrueSkillColor_PatchSig,
 
     &kImproveSkillByTraining_PatchSig,
     &kImprovePlayerSkillPoints_PatchSig,

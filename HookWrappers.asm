@@ -118,6 +118,20 @@ DisplayTrueSkillLevel_Hook PROC PUBLIC
     jmp DisplayTrueSkillLevel_ReturnTrampoline
 DisplayTrueSkillLevel_Hook ENDP
 
+; Forces the code which displays skill color in the skills menu to show the
+; true skill color instead of the damaged color by calling the OG
+; PlayerAVOGetCurrent() function.
+DisplayTrueSkillColor_Hook PROC PUBLIC
+    push rax ; We need this later, as we overwrote an instruction which would
+             ; move the player AVO vtable into rax, and that offset is version
+             ; dependent.
+    sub rsp, 20h
+    call PlayerAVOGetCurrent_Original
+    add rsp, 20h
+    pop rax
+    ret
+DisplayTrueSkillColor_Hook ENDP
+
 ; This function allows us to call the games original ImprovePlayerSkillPoints
 ; function by reimplementing the code our hook replaces and then jumping to
 ; the original game code that follows our hook.
