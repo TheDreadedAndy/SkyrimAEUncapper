@@ -123,6 +123,7 @@ struct CodeSignature {
     size_t patch_size;
     ptrdiff_t offset;
     uintptr_t *return_trampoline;
+    bool (*enabled)(void);
     void **result;
 
     // Optional argument for finding new addresses.
@@ -133,6 +134,8 @@ struct CodeSignature {
     /**
      * @brief Creates a new patch signature structure.
      * @param name The name of the patch signature.
+     * @param enabled A function which will be called to check if the patch
+     *                is enabled.
      * @param hook_type The non-none type of hook to be inserted.
      * @param hook The hook to install with this patch.
      * @param id The relocatable object/function id.
@@ -145,6 +148,7 @@ struct CodeSignature {
      */
     CodeSignature(
         const char* name,
+        bool (*enabled)(void),
         HookType::t hook_type,
         uintptr_t hook,
         unsigned long long id,
@@ -155,6 +159,7 @@ struct CodeSignature {
         , uintptr_t known_offset = 0
 #endif
     ) : name(name),
+        enabled(enabled),
         hook_type(hook_type),
         hook(hook),
         id(id),
@@ -183,6 +188,7 @@ struct CodeSignature {
         , uintptr_t known_offset = 0
 #endif
     ) : name(name),
+        enabled(nullptr),
         hook_type(HookType::None),
         hook(0),
         id(id),
@@ -194,6 +200,11 @@ struct CodeSignature {
 #endif
         result(result)
     {}
+
+    /**
+     * @brief Checks if the patch has been disabled.
+     */
+    inline bool Disabled(void) const { return (enabled != nullptr) && !enabled(); }
 };
 
 /**
@@ -283,8 +294,7 @@ static const CodeSignature kPlayerAVOGetBase_FunctionSig(
 static const CodeSignature kPlayerAVOModBase_FunctionSig(
     /* name */   "PlayerAVOModBase",
     /* id */     38466,
-    /* result */ reinterpret_cast<void**>(&PlayerAVOModBase_Entry),
-    /* known */  0x658890
+    /* result */ reinterpret_cast<void**>(&PlayerAVOModBase_Entry)
 );
 
 /**
@@ -293,8 +303,7 @@ static const CodeSignature kPlayerAVOModBase_FunctionSig(
 static const CodeSignature kPlayerAVOModCurrent_FunctionSig(
     /* name */   "PlayerAVOModCurrent",
     /* id */     38467,
-    /* result */ reinterpret_cast<void**>(&PlayerAVOModCurrent_Entry),
-    /* known */  0x658980
+    /* result */ reinterpret_cast<void**>(&PlayerAVOModCurrent_Entry)
 );
 
 /**
@@ -326,6 +335,7 @@ static const CodeSignature kPlayerAVOModCurrent_FunctionSig(
  */
 static const CodeSignature kSkillCapPatch_PatchSig(
     /* name */       "SkillCapPatch",
+    /* enabled */    []() { return settings.IsSkillCapEnabled(); },
     /* hook_type */  HookType::Call6,
     /* hook */       reinterpret_cast<uintptr_t>(SkillCapPatch_Wrapper),
     /* id */         41561,
@@ -343,6 +353,7 @@ static const CodeSignature kSkillCapPatch_PatchSig(
  */
 static const CodeSignature kCalculateChargePointsPerUse_PatchSig(
     /* name */       "CalculateChargePointsPerUse",
+    /* enabled */    []() { return settings.IsEnchantPatchEnabled(); },
     /* hook_type */  HookType::Call5,
     /* hook */       reinterpret_cast<uintptr_t>(CalculateChargePointsPerUse_Hook),
     /* id */         51449,
@@ -361,6 +372,7 @@ static const CodeSignature kCalculateChargePointsPerUse_PatchSig(
  */
 static const CodeSignature kPlayerAVOGetCurrent_PatchSig(
     /* name */       "PlayerAVOGetCurrent",
+    /* enabled */    []() { return settings.IsSkillFormulaCapEnabled(); },
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(PlayerAVOGetCurrent_Hook),
     /* id */         38462,
@@ -384,6 +396,7 @@ static const CodeSignature kPlayerAVOGetCurrent_PatchSig(
  */
 static const CodeSignature kDisplayTrueSkillLevel_PatchSig(
     /* name */       "DisplayTrueSkillLevel",
+    /* enabled */    []() { return settings.IsSkillFormulaCapEnabled(); },
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(DisplayTrueSkillLevel_Hook),
     /* id */         52525,
@@ -397,6 +410,7 @@ static const CodeSignature kDisplayTrueSkillLevel_PatchSig(
  */
 static const CodeSignature kImproveSkillByTraining_PatchSig(
     /* name */       "ImproveSkillByTraining",
+    /* enabled */    []() { return settings.IsSkillExpEnabled(); },
     /* hook_type */  HookType::Call5,
     /* hook */       reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Original),
     /* id */         41562,
@@ -410,6 +424,7 @@ static const CodeSignature kImproveSkillByTraining_PatchSig(
  */
 static const CodeSignature kImprovePlayerSkillPoints_PatchSig(
     /* name */       "ImprovePlayerSkillPoints",
+    /* enabled */    []() { return settings.IsSkillExpEnabled(); },
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(ImprovePlayerSkillPoints_Hook),
     /* id */         41561,
@@ -427,6 +442,7 @@ static const CodeSignature kImprovePlayerSkillPoints_PatchSig(
  */
 static const CodeSignature kModifyPerkPool_PatchSig(
     /* name */       "ModifyPerkPool",
+    /* enabled */    []() { return settings.IsPerkPointsEnabled(); },
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(ModifyPerkPool_Wrapper),
     /* id */         52538,
@@ -441,6 +457,7 @@ static const CodeSignature kModifyPerkPool_PatchSig(
  */
 static const CodeSignature kImproveLevelExpBySkillLevel_PatchSig(
     /* name */       "ImproveLevelExpBySkillLevel",
+    /* enabled */    []() { return settings.IsLevelExpEnabled(); },
     /* hook_type */  HookType::Call6,
     /* hook */       reinterpret_cast<uintptr_t>(ImproveLevelExpBySkillLevel_Wrapper),
     /* id */         41561,
@@ -464,6 +481,7 @@ static const CodeSignature kImproveLevelExpBySkillLevel_PatchSig(
  */
 static const CodeSignature kImproveAttributeWhenLevelUp_PatchSig(
     /* name */       "ImproveAttributeWhenLevelUp",
+    /* enabled */    []() { return settings.IsAttributePointsEnabled(); },
     /* hook_type */  HookType::Call6,
     /* hook */       reinterpret_cast<uintptr_t>(ImproveAttributeWhenLevelUp_Hook),
     /* id */         51917,
@@ -480,6 +498,7 @@ static const CodeSignature kImproveAttributeWhenLevelUp_PatchSig(
  */
 static const CodeSignature kLegendaryResetSkillLevel_PatchSig(
     /* name */       "LegendaryResetSkillLevel",
+    /* enabled */    []() { return settings.IsLegendaryEnabled(); },
     /* hook_type */  HookType::Call6,
     /* hook */       reinterpret_cast<uintptr_t>(LegendaryResetSkillLevel_Wrapper),
     /* id */         52591,
@@ -496,6 +515,7 @@ static const CodeSignature kLegendaryResetSkillLevel_PatchSig(
  */
 static const CodeSignature kCheckConditionForLegendarySkill_PatchSig(
     /* name */       "CheckConditionForLegendarySkill",
+    /* enabled */    []() { return settings.IsLegendaryEnabled(); },
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(CheckConditionForLegendarySkill_Wrapper),
     /* id */         52520,
@@ -521,6 +541,7 @@ static const CodeSignature kCheckConditionForLegendarySkill_PatchSig(
 */
 static const CodeSignature kHideLegendaryButton_PatchSig(
     /* name */       "HideLegendaryButton",
+    /* enabled */    []() { return settings.IsLegendaryEnabled(); },
     /* hook_type */  HookType::Jump6,
     /* hook */       reinterpret_cast<uintptr_t>(HideLegendaryButton_Wrapper),
     /* id */         52527,
@@ -611,6 +632,13 @@ LocateSignatures(
         auto sig = kGameSignatures[i];
         unsigned long long id = sig->id;
 
+        // If the patch is disabled, ignore it.
+        if (sig->Disabled()) {
+            _MESSAGE("Signature %s is disabled.", sig->name);
+            real_addrs[i] = 0;
+            continue;
+        }
+
         // Update the branch allocation size.
         branch_alloc_size += HookType::AllocSize(sig->hook_type);
 
@@ -626,7 +654,7 @@ LocateSignatures(
             real_addrs[i] = reinterpret_cast<uintptr_t>(addr) + sig->offset;
 
             _MESSAGE(
-                "Signature %s ([ID: %zu] + 0x%zx) is at offset 0x%zx",
+                "Signature %s ([ID: %zu] + 0x%zx) is at offset 0x%zx.",
                 sig->name,
                 id,
                 sig->offset,
@@ -635,7 +663,7 @@ LocateSignatures(
         } else {
             success = -1;
             _MESSAGE(
-                "Failed to find signature %s ([ID: %zu] + 0x%zu)",
+                "Failed to find signature %s ([ID: %zu] + 0x%zu).",
                 sig->name,
                 id,
                 sig->offset
@@ -666,6 +694,12 @@ PatchGameCode(
     for (size_t i = 0; i < kNumSigs; i++) {
         uintptr_t real_address = real_addrs[i];
         auto sig = kGameSignatures[i];
+
+        // Skip disabled patches.
+        if (sig->Disabled()) {
+            continue;
+        }
+
         size_t hook_size = HookType::Size(sig->hook_type);
         size_t return_address = real_address + hook_size;
 

@@ -28,6 +28,7 @@ extern "C" float
 GetSkillCap_Hook(
     ActorAttribute::t skill
 ) {
+    ASSERT(settings.IsSkillCapEnabled());
     return settings.GetSkillCap(skill);
 }
 
@@ -46,15 +47,24 @@ CalculateChargePointsPerUse_Hook(
     float base_points,
     float enchanting_level
 ) {
+    ASSERT(settings.IsEnchantPatchEnabled());
+
     float cost_exponent = *GetFloatGameSetting("fEnchantingCostExponent");
     float cost_base = *GetFloatGameSetting("fEnchantingSkillCostBase");
     float cost_scale = *GetFloatGameSetting("fEnchantingSkillCostScale");
     float cost_mult = *GetFloatGameSetting("fEnchantingSkillCostMult");
+    float cap = settings.GetEnchantChargeCap();
 
-    enchanting_level = MIN(enchanting_level, 199.0f);
-    return cost_mult
-        * pow(base_points, cost_exponent)
-        * (1.0f - pow(enchanting_level * cost_base, cost_scale));
+    enchanting_level = MIN(enchanting_level, cap);
+    float base = cost_mult * pow(base_points, cost_exponent);
+
+    if (settings.IsEnchantChargeLinear()) {
+        // Linearly scale between the normal min/max of charge points.
+        float slope = (-1 * base * pow(cap * cost_base, cost_scale)) / cap;
+        return slope * enchanting_level + base;
+    } else {
+        return base * (1.0f - pow(enchanting_level * cost_base, cost_scale));
+    }
 }
 
 /**
@@ -66,6 +76,8 @@ PlayerAVOGetCurrent_Hook(
     void *av,
     ActorAttribute::t attr
 ) {
+    ASSERT(settings.IsSkillFormulaCapEnabled());
+
     float val = PlayerAVOGetCurrent_Original(av, attr);
 
     if (ActorAttribute::IsSkill(attr)) {
@@ -89,6 +101,8 @@ ImprovePlayerSkillPoints_Hook(
     UInt8 unk3,
     bool unk4
 ) {
+    ASSERT(settings.IsSkillExpEnabled());
+
     if (ActorAttribute::IsSkill(attr)) {
         exp *= settings.GetSkillExpGainMult(
             attr,
@@ -112,6 +126,7 @@ ModifyPerkPool_Hook(
     UInt8 points,
     SInt8 count
 ) {
+    ASSERT(settings.IsPerkPointsEnabled());
     int delta = MIN(0xFF, settings.GetPerkDelta(GetPlayerLevel()));
     int res = points + ((count > 0) ? delta : count);
     return static_cast<UInt8>(MAX(0, MIN(0xFF, res)));
@@ -128,6 +143,7 @@ ImproveLevelExpBySkillLevel_Hook(
     float exp,
     ActorAttribute::t attr
 ) {
+    ASSERT(settings.IsLevelExpEnabled());
     if (ActorAttribute::IsSkill(attr)) {
         exp *= settings.GetLevelSkillExpMult(
             attr,
@@ -153,6 +169,8 @@ ImproveAttributeWhenLevelUp_Hook(
     ActorAttribute::t choice
 ) {
     (void)player_avo;
+    ASSERT(settings.IsAttributePointsEnabled());
+    
     ActorAttributeLevelUp level_up;
     settings.GetAttributeLevelUp(
         GetPlayerLevel(),
@@ -177,6 +195,7 @@ extern "C" void
 LegendaryResetSkillLevel_Hook(
     float base_level
 ) {
+    ASSERT(settings.IsLegendaryEnabled());
     float *reset_val = GetFloatGameSetting("fLegendarySkillResetValue");
     *reset_val = settings.GetPostLegendarySkillLevel(*reset_val, base_level);
 }
@@ -189,6 +208,7 @@ CheckConditionForLegendarySkill_Hook(
     void *player_actor,
     ActorAttribute::t skill
 ) {
+    ASSERT(settings.IsLegendaryEnabled());
     float skill_level = PlayerAVOGetBase(skill);
     return settings.IsLegendaryAvailable(skill);
 }
@@ -202,6 +222,7 @@ HideLegendaryButton_Hook(
     void *player_actor,
     ActorAttribute::t skill
 ) {
+    ASSERT(settings.IsLegendaryEnabled());
     float skill_level = PlayerAVOGetBase(skill);
     return settings.IsLegendaryButtonVisible(skill_level);
 }
