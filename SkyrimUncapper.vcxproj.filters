@@ -71,6 +71,9 @@
     <ClInclude Include="Ini.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ActorAttribute.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="HookWrappers.asm">

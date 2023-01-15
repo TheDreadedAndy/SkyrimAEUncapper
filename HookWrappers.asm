@@ -20,7 +20,6 @@ EXTERN ImprovePlayerSkillPoints_ReturnTrampoline:PTR
 EXTERN ModifyPerkPool_Hook:PROC
 EXTERN ModifyPerkPool_ReturnTrampoline:PTR
 EXTERN ImproveLevelExpBySkillLevel_Hook:PROC
-EXTERN ImproveAttributeWhenLevelUp_ReturnTrampoline:PTR
 
 EXTERN LegendaryResetSkillLevel_Hook:PROC
 EXTERN CheckConditionForLegendarySkill_Hook:PROC
@@ -156,15 +155,6 @@ ImproveLevelExpBySkillLevel_Wrapper PROC PUBLIC
 
     ret
 ImproveLevelExpBySkillLevel_Wrapper ENDP
-
-; This function allows us to call the games OG ImproveAttributeWhenLevelUp
-; function by reimplementing the code we replaced and then jumping to
-; the address immediately after our hook.
-ImproveAttributeWhenLevelUp_Original PROC PUBLIC
-    push rdi ; REX not encoded, but its a nop.
-    sub rsp, 30h
-    jmp ImproveAttributeWhenLevelUp_ReturnTrampoline
-ImproveAttributeWhenLevelUp_Original ENDP
 
 ; Modifies the rest level of legendarying a skill depending on the user
 ; settings and the base level in xmm0.

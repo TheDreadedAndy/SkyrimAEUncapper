@@ -19,6 +19,7 @@
 #include "Settings.h"
 #include "RelocFn.h"
 #include "Compare.h"
+#include "ActorAttribute.h"
 
 /**
  * @brief Gets the base level of a skill on the player character.
@@ -35,18 +36,6 @@ GetPlayerBaseSkillLevel(
     return static_cast<unsigned int>(
         GetBaseActorValue(GetPlayerActorValueOwner(), skill_id)
     );
-}
-
-/**
- * @brief Gets a floating point value from the game setting collection.
- */
-static float
-GetFloatGameSetting(
-    const char* var
-) {
-    Setting *val = GetGameSetting(var);
-    ASSERT(val);
-    return val->data.f32;
 }
 
 /**
@@ -74,10 +63,10 @@ CalculateChargePointsPerUse_Hook(
     float base_points,
     float enchanting_level
 ) {
-    float cost_exponent = GetFloatGameSetting("fEnchantingCostExponent");
-    float cost_base = GetFloatGameSetting("fEnchantingSkillCostBase");
-    float cost_scale = GetFloatGameSetting("fEnchantingSkillCostScale");
-    float cost_mult = GetFloatGameSetting("fEnchantingSkillCostMult");
+    float cost_exponent = *GetFloatGameSetting("fEnchantingCostExponent");
+    float cost_base = *GetFloatGameSetting("fEnchantingSkillCostBase");
+    float cost_scale = *GetFloatGameSetting("fEnchantingSkillCostScale");
+    float cost_mult = *GetFloatGameSetting("fEnchantingSkillCostMult");
 
     enchanting_level = MIN(enchanting_level, 199.0f);
     return cost_mult
@@ -168,33 +157,34 @@ ImproveLevelExpBySkillLevel_Hook(
 }
 
 /**
- * @brief Adjusts the carry weight/attribute gain at each level up based on
- *        the settings in the INI file.
+ * @brief Adjusts the attribute gain at each level up based on the settings in
+ *        the INI file.
+ *
+ * This function overwrites a call to player_avo->ModBase. Since we're
+ * overwriting a call, we don't need to reg save and, thus, don't need a
+ * wrapper. We also overwrite the carry weight level up.
  */
-UInt64
+void
 ImproveAttributeWhenLevelUp_Hook(
-    void *unk0,
-    UInt8 unk1
+    void *player_avo,
+    ActorAttribute choice
 ) {
-    Setting *iAVDhmsLevelUp = GetGameSetting("iAVDhmsLevelUp");
-    Setting *fLevelUpCarryWeightMod = GetGameSetting("fLevelUpCarryWeightMod");
-
-    ASSERT(iAVDhmsLevelUp);
-    ASSERT(fLevelUpCarryWeightMod);
-
-    // Not sure what this is offsetting into, but its consistent
-    // between all SE versions.
-    Settings::player_attr_e choice =
-        *reinterpret_cast<Settings::player_attr_e*>(static_cast<char*>(unk0) + 0x18);
-
+    (void)player_avo;
+    ActorAttributeLevelUp level_up;
     settings.GetAttributeLevelUp(
         GetPlayerLevel(),
         choice,
-        iAVDhmsLevelUp->data.u32,
-        fLevelUpCarryWeightMod->data.f32
+        level_up
     );
 
-    return ImproveAttributeWhenLevelUp_Original(unk0, unk1);
+    PlayerAVOModBase(ActorAttribute::Health, level_up.health);
+    PlayerAVOModBase(ActorAttribute::Magicka, level_up.magicka);
+    PlayerAVOModBase(ActorAttribute::Stamina, level_up.stamina);
+    PlayerAVOModCurrent(
+        0, // Same as OG call.
+        ActorAttribute::CarryWeight,
+        level_up.carry_weight
+    );
 }
 
 /**
@@ -204,12 +194,8 @@ extern "C" void
 LegendaryResetSkillLevel_Hook(
     float base_level
 ) {
-    Setting *reset_val = GetGameSetting("fLegendarySkillResetValue");
-    ASSERT(reset_val);
-    reset_val->data.f32 = settings.GetPostLegendarySkillLevel(
-        reset_val->data.f32,
-        base_level
-    );
+    float *reset_val = GetFloatGameSetting("fLegendarySkillResetValue");
+    *reset_val = settings.GetPostLegendarySkillLevel(*reset_val, base_level);
 }
 
 /**

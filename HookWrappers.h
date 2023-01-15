@@ -23,7 +23,6 @@ extern "C" void ImprovePlayerSkillPoints_Original(
     bool unk4
 );
 extern "C" void ModifyPerkPool_Wrapper(void);
-extern "C" UInt64 ImproveAttributeWhenLevelUp_Original(void *unk0, UInt8 unk1);
 extern "C" void LegendaryResetSkillLevel_Wrapper(void);
 
 extern "C" void CheckConditionForLegendarySkill_Wrapper(void);

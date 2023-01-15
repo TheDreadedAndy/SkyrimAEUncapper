@@ -16,7 +16,7 @@
  * converted each one to an address-independence ID. Additionally, a new
  * signature for GetEffectiveSkillLevel() was found and DisplayTrueSkillLevel
  * was added.
- * 
+ *
  * Note that we do not allow non-portable structures to leave this file. That
  * is to say, if a structure is not independent between the versions of AE,
  * then it must either be opaque or contained within this file. This means we
@@ -206,7 +206,6 @@ struct CodeSignature {
 extern "C" {
     uintptr_t ImprovePlayerSkillPoints_ReturnTrampoline;
     uintptr_t ModifyPerkPool_ReturnTrampoline;
-    uintptr_t ImproveAttributeWhenLevelUp_ReturnTrampoline;
     uintptr_t GetEffectiveSkillLevel_ReturnTrampoline;
     uintptr_t DisplayTrueSkillLevel_ReturnTrampoline;
     uintptr_t CheckConditionForLegendarySkill_ReturnTrampoline;
@@ -229,6 +228,8 @@ static void **gameSettings;
 static float (*GetBaseActorValue_Entry)(void*, UInt32);
 static UInt16 (*GetLevel_Entry)(void*);
 static Setting *(*GetGameSetting_Entry)(void*, const char*);
+static void (*PlayerAVOModBase_Entry)(void*, ActorAttribute, float);
+static void (*PlayerAVOModCurrent_Entry)(void*, UInt32, ActorAttribute, float);
 ///@}
 
 /**
@@ -274,6 +275,26 @@ static const CodeSignature kGetGameSetting_FunctionSig(
     /* name */   "GetGameSetting",
     /* id */     22788,
     /* result */ reinterpret_cast<void**>(&GetGameSetting_Entry)
+);
+
+/**
+ * @brief Mods the base value of an attribute of the player.
+ */
+static const CodeSignature kPlayerAVOModBase_FunctionSig(
+    /* name */   "PlayerAVOModBase",
+    /* id */     38466,
+    /* result */ reinterpret_cast<void**>(&PlayerAVOModBase_Entry),
+    /* known */  0x658890
+);
+
+/**
+ * @brief Mods the current value of an attribute of the player.
+ */
+static const CodeSignature kPlayerAVOModCurrent_FunctionSig(
+    /* name */   "PlayerAVOModCurrent",
+    /* id */     38467,
+    /* result */ reinterpret_cast<void**>(&PlayerAVOModCurrent_Entry),
+    /* known */  0x658980
 );
 
 /**
@@ -434,11 +455,12 @@ static const CodeSignature kImproveLevelExpBySkillLevel_PatchSig(
  */
 static const CodeSignature kImproveAttributeWhenLevelUp_PatchSig(
     /* name */       "ImproveAttributeWhenLevelUp",
-    /* hook_type */  HookType::Jump6,
+    /* hook_type */  HookType::Call6,
     /* hook */       reinterpret_cast<uintptr_t>(ImproveAttributeWhenLevelUp_Hook),
     /* id */         51917,
-    /* patch_size */ 6,
-    /* trampoline */ &ImproveAttributeWhenLevelUp_ReturnTrampoline
+    /* patch_size */ 0x2b,
+    /* trampoline */ nullptr,
+    /* offset */     0x93
 );
 
 /**
@@ -525,6 +547,8 @@ static const CodeSignature *const kGameSignatures[] = {
     &kGetLevel_FunctionSig,
     &kGetBaseActorValue_FunctionSig,
     &kGetGameSetting_FunctionSig,
+    &kPlayerAVOModBase_FunctionSig,
+    &kPlayerAVOModCurrent_FunctionSig,
 
     &kSkillCapPatch_PatchSig,
     &kCalculateChargePointsPerUse_PatchSig,
@@ -683,16 +707,21 @@ PatchGameCode(
 }
 
 /**
- * @brief Gets a pointer to the game settings object.
+ * @brief Gets a pointer to a float game setting.
+ *
+ * Always returns a valid pointer.
  */
-Setting *
-GetGameSetting(
+float *
+GetFloatGameSetting(
     const char *var
 ) {
     ASSERT(gameSettings);
     ASSERT(*gameSettings);
     ASSERT(GetGameSetting_Entry);
-    return GetGameSetting_Entry(*gameSettings, var);
+    Setting *setting = GetGameSetting_Entry(*gameSettings, var);
+    ASSERT(setting);
+    ASSERT(setting->name[0] == 'f');
+    return &setting->data.f32;
 }
 
 /**
@@ -703,7 +732,7 @@ GetGameSetting(
  *
  * Versions before 1.6.629 store it at offset 0xB0. From that version on, it
  * is at offset 0xB8.
- * 
+ *
  * @return The actor value owner of the player.
  */
 void *
@@ -742,6 +771,36 @@ GetBaseActorValue(
 }
 
 /**
+ * @brief Modifies the base value of a player attribute.
+ * @param attr The attribute to modify.
+ * @param val The value to add to it.
+ */
+void
+PlayerAVOModBase(
+    ActorAttribute attr,
+    float val
+) {
+    ASSERT(PlayerAVOModBase_Entry);
+    PlayerAVOModBase_Entry(GetPlayerActorValueOwner(), attr, val);
+}
+
+/**
+ * @brief Modifies the current value of a player attribute.
+ * @param unk1 unknown.
+ * @param attr The attribute to modify.
+ * @param val The value to add to the attribute.
+ */
+void
+PlayerAVOModCurrent(
+    UInt32 unk1,
+    ActorAttribute attr,
+    float val
+) {
+    ASSERT(PlayerAVOModCurrent_Entry);
+    PlayerAVOModCurrent_Entry(GetPlayerActorValueOwner(), unk1, attr, val);
+}
+
+/**
  * @brief Applies all of this plugins patches to the skyrim AE binary.
  * @param img_base The base of the skyrim module.
  * @param runtime_version The running version of skyrim.
@@ -773,6 +832,6 @@ ApplyGamePatches(
     _MESSAGE("Done!");
 
     PatchGameCode(real_addrs);
-    
+
     return 0;
 }

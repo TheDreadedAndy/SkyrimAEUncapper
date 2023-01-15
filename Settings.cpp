@@ -93,8 +93,14 @@ Settings::SaveConfig(
     levelSkillExpMultsWithSkills.SaveConfig(ini, kLevelSkillExpMultsWithSkillsDesc);
     levelSkillExpMultsWithPCLevel.SaveConfig(ini, kLevelSkillExpMultsWithPCLevelDesc);
     healthAtLevelUp.SaveConfig(ini, kHealthAtLevelUpDesc);
+    healthAtMagickaLevelUp.SaveConfig(ini, kHealthAtMagickaLevelUpDesc);
+    healthAtStaminaLevelUp.SaveConfig(ini, kHealthAtStaminaLevelUpDesc);
     magickaAtLevelUp.SaveConfig(ini, kMagickaAtLevelUpDesc);
+    magickaAtHealthLevelUp.SaveConfig(ini, kMagickaAtHealthLevelUpDesc);
+    magickaAtStaminaLevelUp.SaveConfig(ini, kMagickaAtStaminaLevelUpDesc);
     staminaAtLevelUp.SaveConfig(ini, kStaminaAtLevelUpDesc);
+    staminaAtHealthLevelUp.SaveConfig(ini, kStaminaAtHealthLevelUpDesc);
+    staminaAtMagickaLevelUp.SaveConfig(ini, kStaminaAtMagickaLevelUpDesc);
     carryWeightAtHealthLevelUp.SaveConfig(ini, kCarryWeightAtHealthLevelUpDesc);
     carryWeightAtMagickaLevelUp.SaveConfig(ini, kCarryWeightAtMagickaLevelUpDesc);
     carryWeightAtStaminaLevelUp.SaveConfig(ini, kCarryWeightAtStaminaLevelUpDesc);
@@ -158,8 +164,14 @@ Settings::ReadConfig(
     levelSkillExpMultsWithSkills.ReadConfig(ini);
     levelSkillExpMultsWithPCLevel.ReadConfig(ini);
     healthAtLevelUp.ReadConfig(ini);
+    healthAtMagickaLevelUp.ReadConfig(ini);
+    healthAtStaminaLevelUp.ReadConfig(ini);
     magickaAtLevelUp.ReadConfig(ini);
+    magickaAtHealthLevelUp.ReadConfig(ini);
+    magickaAtStaminaLevelUp.ReadConfig(ini);
     staminaAtLevelUp.ReadConfig(ini);
+    staminaAtHealthLevelUp.ReadConfig(ini);
+    staminaAtMagickaLevelUp.ReadConfig(ini);
     carryWeightAtHealthLevelUp.ReadConfig(ini);
     carryWeightAtMagickaLevelUp.ReadConfig(ini);
     carryWeightAtStaminaLevelUp.ReadConfig(ini);
@@ -260,37 +272,45 @@ Settings::GetLevelSkillExpMult(
  * @brief Calculates the attribute increase from the given player level and
  *        selection.
  * @param player_level The level of the player.
- * @param attr The attribute the player selected to level.
- * @param attr_up The returned increase to that attribute.
- * @param carry_up The returned increase to carry weight.
+ * @param choice The attribute the player selected to level.
+ * @param level_up Returns the deltas for each attribute for this level up.
  */
 void
 Settings::GetAttributeLevelUp(
     unsigned int player_level,
-    player_attr_e attr,
-    UInt32 &attr_up,
-    float &carry_up
+    ActorAttribute choice,
+    ActorAttributeLevelUp &level_up
 ) {
-    ASSERT((attr == ATTR_HEALTH) || (attr == ATTR_MAGICKA) || (attr == ATTR_STAMINA));
-
-    UInt32 a_up = 0, c_up = 0;
-    switch (attr) {
-        case ATTR_HEALTH:
-            a_up = healthAtLevelUp.GetNearest(player_level);
-            c_up = carryWeightAtHealthLevelUp.GetNearest(player_level);
+    unsigned int health = 0, magicka = 0, stamina = 0, carry_weight = 0;
+    switch (choice) {
+        case ActorAttribute::Health:
+            health = healthAtLevelUp.GetNearest(player_level);
+            magicka = magickaAtHealthLevelUp.GetNearest(player_level);
+            stamina = staminaAtHealthLevelUp.GetNearest(player_level);
+            carry_weight = carryWeightAtHealthLevelUp.GetNearest(player_level);
             break;
-        case ATTR_MAGICKA:
-            a_up = magickaAtLevelUp.GetNearest(player_level);
-            c_up = carryWeightAtMagickaLevelUp.GetNearest(player_level);
+        case ActorAttribute::Magicka:
+            health = healthAtMagickaLevelUp.GetNearest(player_level);
+            magicka = magickaAtLevelUp.GetNearest(player_level);
+            stamina = staminaAtMagickaLevelUp.GetNearest(player_level);
+            carry_weight = carryWeightAtMagickaLevelUp.GetNearest(player_level);
             break;
-        case ATTR_STAMINA:
-            a_up = staminaAtLevelUp.GetNearest(player_level);
-            c_up = carryWeightAtStaminaLevelUp.GetNearest(player_level);
+        case ActorAttribute::Stamina:
+            health = healthAtStaminaLevelUp.GetNearest(player_level);
+            magicka = magickaAtStaminaLevelUp.GetNearest(player_level);
+            stamina = staminaAtLevelUp.GetNearest(player_level);
+            carry_weight = carryWeightAtStaminaLevelUp.GetNearest(player_level);
             break;
+        default:
+            HALT("Cannot get attribute level up with an invalid choice.");
     }
 
-    attr_up = a_up;
-    carry_up = static_cast<float>(c_up);
+    level_up = {
+        static_cast<float>(health),
+        static_cast<float>(magicka),
+        static_cast<float>(stamina),
+        static_cast<float>(carry_weight)
+    };
 }
 
 /**

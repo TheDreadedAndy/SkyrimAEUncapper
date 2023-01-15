@@ -27,6 +27,7 @@
     <ClCompile Include="SkillSlot.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ActorAttribute.h" />
     <ClInclude Include="addr_lib\versionlibdb.h" />
     <ClInclude Include="Compare.h" />
     <ClInclude Include="HookWrappers.h" />

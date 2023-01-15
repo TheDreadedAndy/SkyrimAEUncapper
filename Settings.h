@@ -18,8 +18,14 @@
 #include "Compare.h"
 #include "SkillSlot.h"
 #include "Ini.h"
+#include "ActorAttribute.h"
 
-#define CONFIG_VERSION 5
+#define CONFIG_VERSION 6
+
+// Comment on each leveled setting description.
+#define LEVELED_SETTING_NOTE\
+    " If a specific level is not specified, then "\
+    "the value for the closest lower level is used."
 
 template<typename T>
 class LeveledSetting {
@@ -519,29 +525,44 @@ class Settings {
         "additional multipliers depending on BASE SKILL LEVEL, independantly "
         "for each skill.";
     const char *const kPerksAtLevelUpDesc =
-        "# Set the number of perks gained at each level up. If a specific "
-        "level is not specified then the closest lower level setting is used.";
+        "# Set the number of perks gained at each level up."
+        LEVELED_SETTING_NOTE;
     const char *const kHealthAtLevelUpDesc =
-        "# Set the number of health gained at each level up. If a specific "
-        "level is not specified then the closest lower level setting is used.";
+        "# Set the number of health gained at each health level up."
+        LEVELED_SETTING_NOTE;
+    const char *const kHealthAtMagickaLevelUpDesc =
+        "# Set the number of health gained at each magicka level up."
+        LEVELED_SETTING_NOTE;
+    const char *const kHealthAtStaminaLevelUpDesc =
+        "# Set the number of health gained at each stamina level up."
+        LEVELED_SETTING_NOTE;
     const char *const kMagickaAtLevelUpDesc =
-        "# Set the number of magicka gained at each level up. If a specific "
-        "level is not specified then the closest lower level setting is used.";
+        "# Set the number of magicka gained at each magicka level up."
+        LEVELED_SETTING_NOTE;
+    const char *const kMagickaAtHealthLevelUpDesc =
+        "# Set the number of magicka gained at each health level up."
+        LEVELED_SETTING_NOTE;
+    const char *const kMagickaAtStaminaLevelUpDesc =
+        "# Set the number of magicka gained at each stamina level up."
+        LEVELED_SETTING_NOTE;
     const char *const kStaminaAtLevelUpDesc =
-        "# Set the number of stamina gained at each level up. If a specific "
-        "level is not specified then the closest lower level setting is used.";
+        "# Set the number of stamina gained at each stamina level up."
+        LEVELED_SETTING_NOTE;
+    const char *const kStaminaAtHealthLevelUpDesc =
+        "# Set the number of stamina gained at each health level up."
+        LEVELED_SETTING_NOTE;
+    const char *const kStaminaAtMagickaLevelUpDesc =
+        "# Set the number of stamina gained at each magicka level up."
+        LEVELED_SETTING_NOTE;
     const char *const kCarryWeightAtHealthLevelUpDesc =
-        "# Set the number of carryweight gained at each health level up. "
-        "If a specific level is not specified then the closest lower level "
-        "setting is used.";
+        "# Set the number of carryweight gained at each health level up."
+        LEVELED_SETTING_NOTE;
     const char *const kCarryWeightAtMagickaLevelUpDesc =
-        "# Set the number of carryweight gained at each magicka level up. "
-        "If a specific level is not specified then the closest lower level "
-        "setting is used.";
+        "# Set the number of carryweight gained at each magicka level up."
+        LEVELED_SETTING_NOTE;
     const char *const kCarryWeightAtStaminaLevelUpDesc =
-        "# Set the number of carryweight gained at each stamina level up. "
-        "If a specific level is not specified then the closest lower level "
-        "setting is used.";
+        "# Set the number of carryweight gained at each stamina level up."
+        LEVELED_SETTING_NOTE;
     ///@}
 
     bool SaveConfig(CSimpleIniA &ini, const std::string &path);
@@ -562,8 +583,14 @@ class Settings {
     SkillSettingManager<LeveledSetting, float> levelSkillExpMultsWithPCLevel;
 
     LeveledSetting<unsigned int> healthAtLevelUp;
+    LeveledSetting<unsigned int> healthAtMagickaLevelUp;
+    LeveledSetting<unsigned int> healthAtStaminaLevelUp;
     LeveledSetting<unsigned int> magickaAtLevelUp;
+    LeveledSetting<unsigned int> magickaAtHealthLevelUp;
+    LeveledSetting<unsigned int> magickaAtStaminaLevelUp;
     LeveledSetting<unsigned int> staminaAtLevelUp;
+    LeveledSetting<unsigned int> staminaAtHealthLevelUp;
+    LeveledSetting<unsigned int> staminaAtMagickaLevelUp;
     LeveledSetting<unsigned int> carryWeightAtHealthLevelUp;
     LeveledSetting<unsigned int> carryWeightAtMagickaLevelUp;
     LeveledSetting<unsigned int> carryWeightAtStaminaLevelUp;
@@ -571,13 +598,6 @@ class Settings {
     LegendarySettings legendary;
 
   public:
-    /// @brief Encodes the attribute selection during level-up.
-    typedef enum {
-        ATTR_HEALTH = 0x18,
-        ATTR_MAGICKA,
-        ATTR_STAMINA
-    } player_attr_e;
-
     Settings(
     ) : general(),
         skillCaps("SkillCaps", 100),
@@ -590,8 +610,14 @@ class Settings {
         levelSkillExpMultsWithPCLevel("LevelSkillExpMults\\CharacterLevel\\", 1.00),
         levelSkillExpMultsWithSkills("LevelSkillExpMults\\BaseSkillLevel\\", 1.00),
         healthAtLevelUp("HealthAtLevelUp", 10),
+        healthAtMagickaLevelUp("HealthAtMagickaLevelUp", 0),
+        healthAtStaminaLevelUp("HealthAtStaminaLevelUp", 0),
         magickaAtLevelUp("MagickaAtLevelUp", 10),
+        magickaAtHealthLevelUp("MagickaAtHealthLevelUp", 0),
+        magickaAtStaminaLevelUp("MagickaAtStaminaLevelUp", 0),
         staminaAtLevelUp("StaminaAtLevelUp", 10),
+        staminaAtHealthLevelUp("StaminaAtHealthLevelUp", 0),
+        staminaAtMagickaLevelUp("StaminaAtMagickaLevelUp", 0),
         carryWeightAtHealthLevelUp("CarryWeightAtHealthLevelUp", 0),
         carryWeightAtMagickaLevelUp("CarryWeightAtMagickaLevelUp", 0),
         carryWeightAtStaminaLevelUp("CarryWeightAtStaminaLevelUp", 5),
@@ -608,8 +634,8 @@ class Settings {
                               unsigned int player_level);
     float GetLevelSkillExpMult(unsigned int skill_id, unsigned int skill_level,
                                unsigned int player_level);
-    void GetAttributeLevelUp(unsigned int player_level, player_attr_e attr,
-                             UInt32 &attr_up, float &carry_up);
+    void GetAttributeLevelUp(unsigned int player_level, ActorAttribute attr,
+                             ActorAttributeLevelUp &level_up);
     bool IsLegendaryButtonVisible(unsigned int skill_level);
     bool IsLegendaryAvailable(unsigned int skill_level);
     float GetPostLegendarySkillLevel(float default_reset, float base_level);
