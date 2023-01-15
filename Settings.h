@@ -22,11 +22,6 @@
 
 #define CONFIG_VERSION 6
 
-// Comment on each leveled setting description.
-#define LEVELED_SETTING_NOTE\
-    " If a specific level is not specified, then "\
-    "the value for the closest lower level is used."
-
 template<typename T>
 class LeveledSetting {
   private:
@@ -432,15 +427,59 @@ class Settings {
   private:
     class GeneralSettings {
       private:
-        const char *const kSection = "General";
+        static const char *const kSection;
+        static const char *const kVersionDesc;
+        static const char *const kEnableSkillCapsDesc;
+        static const char *const kEnableSkillFormulaCapsDesc;
+        static const char *const kEnableEnchantingPatchDesc;
+        static const char *const kEnableSkillExpMultsDesc;
+        static const char *const kEnableLevelExpMultsDesc;
+        static const char *const kEnablePerkPointsDesc;
+        static const char *const kEnableAttributePointsDesc;
+        static const char *const kEnableLegendaryDesc;
 
       public:
         SectionField<unsigned int> version;
         SectionField<std::string> author;
+        SectionField<bool> enableSkillCaps;
+        SectionField<bool> enableSkillFormulaCaps;
+        SectionField<bool> enableEnchantingPatch;
+        SectionField<bool> enableSkillExpMults;
+        SectionField<bool> enableLevelExpMults;
+        SectionField<bool> enablePerkPoints;
+        SectionField<bool> enableAttributePoints;
+        SectionField<bool> enableLegendary;
 
         GeneralSettings(
         ) : version("Version", 0),
-            author("Author", "Kassent")
+            author("Author", "Kassent"),
+            enableSkillCaps("bUseSkillCaps", true),
+            enableSkillFormulaCaps("bUseSkillFormulaCaps", true),
+            enableEnchantingPatch("bUseEnchanterCaps", true),
+            enableSkillExpMults("bUseSkillExpGainMults", true),
+            enableLevelExpMults("bUsePCLevelSkillExpMults", true),
+            enablePerkPoints("bUsePerksAtLevelUp", true),
+            enableAttributePoints("bUseAttributesAtLevelUp", true),
+            enableLegendary("bUseLegendarySettings", true)
+        {}
+
+        void ReadConfig(CSimpleIniA &ini);
+        void SaveConfig(CSimpleIniA &ini);
+    };
+
+    class EnchantSettings {
+      private:
+        static const char *const kSection;
+        static const char *const kChargeLevelCapDesc;
+        static const char *const kUseLinearChargeFormulaDesc;
+
+      public:
+        SectionField<unsigned int> chargeLevelCap;
+        SectionField<bool> useLinearChargeFormula;
+
+        EnchantSettings(
+        ) : chargeLevelCap("iChargeLevelCap", 199),
+            useLinearChargeFormula("bUseLinearChargeFormula", false)
         {}
 
         void ReadConfig(CSimpleIniA &ini);
@@ -449,28 +488,11 @@ class Settings {
 
     class LegendarySettings {
       private:
-        /// @brief Field comments
-        ///@{
-        const char *const kKeepSkillLevelDesc =
-            "# This option determines whether the legendary feature will reset the "
-            "skill level. Set this option to true will make option "
-            "\"iSkillLevelAfterLegendary\" have no effect.";
-        const char *const kHideButtonDesc =
-            "# This option determines whether to hide the legendary button in "
-            "StatsMenu when you meet the requirements of legendary skills. "
-            "If you set \"iSkillLevelEnableLegendary\" to below 100, the legendary "
-            "button will not show up, but you can make skills legendary normally "
-            "by pressing SPACE.";
-        const char *const kSkillLevelEnableDesc =
-            "# This option determines the skill level required to make a skill "
-            "legendary.";
-        const char *const kSkillLevelAfterDesc =
-            "# This option determines the level of a skill after making this skill "
-            "legendary. Set this option to 0 will reset the skill level to default "
-            "level.";
-        ///@}
-
-        const char *const kSection = "LegendarySkill";
+        static const char *const kSection;
+        static const char *const kKeepSkillLevelDesc;
+        static const char *const kHideButtonDesc;
+        static const char *const kSkillLevelEnableDesc;
+        static const char *const kSkillLevelAfterDesc;
 
       public:
         SectionField<bool> keepSkillLevel;
@@ -489,81 +511,27 @@ class Settings {
         void SaveConfig(CSimpleIniA &ini);
     };
 
-    /// @brief Desciptions for sections in the INI file.
-    ///@{
-    const char *const kSkillCapsDesc =
-        "# Set the skill level cap. This option determines the upper limit of "
-        "skill level you can reach.";
-    const char *const kSkillFormulaCapsDesc =
-        "# Set the skill formula cap. This option determines the upper limit of"
-        " skill level used in the calculation of all kinds of magic effects.";
-    const char *const kSkillExpGainMultsDesc =
-        "# Set the skill experience gained multiplier. The skill experience "
-        "you gained actually = The final calculated experience value right "
-        "before it is given to the character after any experience "
-        "modification * SkillExpGainMult * Corresponding "
-        "Sub-SkillExpGainMult listed below.";
-    const char *const kSkillExpGainMultsWithPCLevelDesc =
-        "# All the subsections of SkillExpGainMults below allow to set an "
-        "additional multiplier depending on CHARACTER LEVEL, independantly "
-        "for each skill.";
-    const char *const kSkillExpGainMultsWithSkillsDesc =
-        "# All the subsections of SkillExpGainMults below allow to set an "
-        "additional multiplier depending on BASE SKILL LEVEL, independantly "
-        "for each skill.";
-    const char *const kLevelSkillExpMultsDesc =
-        "# Set the skill experience to PC experience multipliers. When you "
-        "level up a skill, the PC experience you gained actually = Current "
-        "base skill level * LevelSkillExpMults * Corresponding "
-        "Sub-LevelSkillExpMults listed below.";
-    const char *const kLevelSkillExpMultsWithPCLevelDesc =
-        "# All the subsections of LevelSkillExpMults below allow to set an "
-        "additional multipliers depending on CHARACTER LEVEL, independantly "
-        "for each skill.";
-    const char *const kLevelSkillExpMultsWithSkillsDesc =
-        "# All the subsections of LevelSkillExpMults below allow to set an "
-        "additional multipliers depending on BASE SKILL LEVEL, independantly "
-        "for each skill.";
-    const char *const kPerksAtLevelUpDesc =
-        "# Set the number of perks gained at each level up."
-        LEVELED_SETTING_NOTE;
-    const char *const kHealthAtLevelUpDesc =
-        "# Set the number of health gained at each health level up."
-        LEVELED_SETTING_NOTE;
-    const char *const kHealthAtMagickaLevelUpDesc =
-        "# Set the number of health gained at each magicka level up."
-        LEVELED_SETTING_NOTE;
-    const char *const kHealthAtStaminaLevelUpDesc =
-        "# Set the number of health gained at each stamina level up."
-        LEVELED_SETTING_NOTE;
-    const char *const kMagickaAtLevelUpDesc =
-        "# Set the number of magicka gained at each magicka level up."
-        LEVELED_SETTING_NOTE;
-    const char *const kMagickaAtHealthLevelUpDesc =
-        "# Set the number of magicka gained at each health level up."
-        LEVELED_SETTING_NOTE;
-    const char *const kMagickaAtStaminaLevelUpDesc =
-        "# Set the number of magicka gained at each stamina level up."
-        LEVELED_SETTING_NOTE;
-    const char *const kStaminaAtLevelUpDesc =
-        "# Set the number of stamina gained at each stamina level up."
-        LEVELED_SETTING_NOTE;
-    const char *const kStaminaAtHealthLevelUpDesc =
-        "# Set the number of stamina gained at each health level up."
-        LEVELED_SETTING_NOTE;
-    const char *const kStaminaAtMagickaLevelUpDesc =
-        "# Set the number of stamina gained at each magicka level up."
-        LEVELED_SETTING_NOTE;
-    const char *const kCarryWeightAtHealthLevelUpDesc =
-        "# Set the number of carryweight gained at each health level up."
-        LEVELED_SETTING_NOTE;
-    const char *const kCarryWeightAtMagickaLevelUpDesc =
-        "# Set the number of carryweight gained at each magicka level up."
-        LEVELED_SETTING_NOTE;
-    const char *const kCarryWeightAtStaminaLevelUpDesc =
-        "# Set the number of carryweight gained at each stamina level up."
-        LEVELED_SETTING_NOTE;
-    ///@}
+    static const char *const kSkillCapsDesc;
+    static const char *const kSkillFormulaCapsDesc;
+    static const char *const kSkillExpGainMultsDesc;
+    static const char *const kSkillExpGainMultsWithPCLevelDesc;
+    static const char *const kSkillExpGainMultsWithSkillsDesc;
+    static const char *const kLevelSkillExpMultsDesc;
+    static const char *const kLevelSkillExpMultsWithPCLevelDesc;
+    static const char *const kLevelSkillExpMultsWithSkillsDesc;
+    static const char *const kPerksAtLevelUpDesc;
+    static const char *const kHealthAtLevelUpDesc;
+    static const char *const kHealthAtMagickaLevelUpDesc;
+    static const char *const kHealthAtStaminaLevelUpDesc;
+    static const char *const kMagickaAtLevelUpDesc;
+    static const char *const kMagickaAtHealthLevelUpDesc;
+    static const char *const kMagickaAtStaminaLevelUpDesc;
+    static const char *const kStaminaAtLevelUpDesc;
+    static const char *const kStaminaAtHealthLevelUpDesc;
+    static const char *const kStaminaAtMagickaLevelUpDesc;
+    static const char *const kCarryWeightAtHealthLevelUpDesc;
+    static const char *const kCarryWeightAtMagickaLevelUpDesc;
+    static const char *const kCarryWeightAtStaminaLevelUpDesc;
 
     bool SaveConfig(CSimpleIniA &ini, const std::string &path);
 
@@ -572,7 +540,7 @@ class Settings {
     SkillSettingManager<SkillSetting, unsigned int> skillCaps;
     SkillSettingManager<SkillSetting, unsigned int> skillFormulaCaps;
 
-    LeveledSetting<float> perksAtLevelUp;
+    EnchantSettings enchant;
 
     SkillSettingManager<SkillSetting, float> skillExpGainMults;
     SkillSettingManager<LeveledSetting, float> skillExpGainMultsWithSkills;
@@ -582,6 +550,7 @@ class Settings {
     SkillSettingManager<LeveledSetting, float> levelSkillExpMultsWithSkills;
     SkillSettingManager<LeveledSetting, float> levelSkillExpMultsWithPCLevel;
 
+    LeveledSetting<float> perksAtLevelUp;
     LeveledSetting<unsigned int> healthAtLevelUp;
     LeveledSetting<unsigned int> healthAtMagickaLevelUp;
     LeveledSetting<unsigned int> healthAtStaminaLevelUp;
@@ -602,13 +571,14 @@ class Settings {
     ) : general(),
         skillCaps("SkillCaps", 100),
         skillFormulaCaps("SkillFormulaCaps", 100),
-        perksAtLevelUp("PerksAtLevelUp", 1.00),
+        enchant(),
         skillExpGainMults("SkillExpGainMults", 1.00),
         skillExpGainMultsWithPCLevel("SkillExpGainMults\\CharacterLevel\\", 1.00),
         skillExpGainMultsWithSkills("SkillExpGainMults\\BaseSkillLevel\\", 1.00),
         levelSkillExpMults("LevelSkillExpMults", 1.00),
         levelSkillExpMultsWithPCLevel("LevelSkillExpMults\\CharacterLevel\\", 1.00),
         levelSkillExpMultsWithSkills("LevelSkillExpMults\\BaseSkillLevel\\", 1.00),
+        perksAtLevelUp("PerksAtLevelUp", 1.00),
         healthAtLevelUp("HealthAtLevelUp", 10),
         healthAtMagickaLevelUp("HealthAtMagickaLevelUp", 0),
         healthAtStaminaLevelUp("HealthAtStaminaLevelUp", 0),
@@ -626,13 +596,24 @@ class Settings {
 
     bool ReadConfig(const std::string& path);
 
+    inline bool IsSkillCapEnabled(void) { return general.enableSkillCaps.Get(); }
+    inline bool IsSkillFormulaCapEnabled(void) { return general.enableSkillFormulaCaps.Get(); }
+    inline bool IsEnchantPatchEnabled(void) { return general.enableEnchantingPatch.Get(); }
+    inline bool IsSkillExpEnabled(void) { return general.enableSkillExpMults.Get(); }
+    inline bool IsLevelExpEnabled(void) { return general.enableLevelExpMults.Get(); }
+    inline bool IsPerkPointsEnabled(void) { return general.enablePerkPoints.Get(); }
+    inline bool IsAttributePointsEnabled(void) { return general.enableAttributePoints.Get(); }
+    inline bool IsLegendaryEnabled(void) { return general.enableLegendary.Get(); }
+
     float GetSkillCap(ActorAttribute::t skill);
     float GetSkillFormulaCap(ActorAttribute::t skill);
-    unsigned int GetPerkDelta(unsigned int player_level);
+    float GetEnchantChargeCap(void);
+    inline bool IsEnchantChargeLinear(void) { return enchant.useLinearChargeFormula.Get(); }
     float GetSkillExpGainMult(ActorAttribute::t skill, unsigned int skill_level,
                               unsigned int player_level);
     float GetLevelSkillExpMult(ActorAttribute::t skill, unsigned int skill_level,
                                unsigned int player_level);
+    unsigned int GetPerkDelta(unsigned int player_level);
     void GetAttributeLevelUp(unsigned int player_level, ActorAttribute::t attr,
                              ActorAttributeLevelUp &level_up);
     bool IsLegendaryButtonVisible(unsigned int skill_level);
@@ -643,4 +624,3 @@ class Settings {
 extern Settings settings;
 
 #endif /* __SKYRIM_UNCAPPER_AE_SETTINGS_H__ */
-

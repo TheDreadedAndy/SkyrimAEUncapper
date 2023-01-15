@@ -150,7 +150,7 @@ class SectionField {
     /**
      * @brief Gets the value of the field.
      */
-    T
+    inline T
     Get() {
         return val;
     }
@@ -158,7 +158,7 @@ class SectionField {
     /**
      * @brief Sets the value of the field.
      */
-    void
+    inline void
     Set(
         T v
     ) {

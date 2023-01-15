@@ -17,6 +17,134 @@
 /// @brief Global settings manager, used throughout this plugin.
 Settings settings;
 
+// Comment on each leveled setting description.
+#define LEVELED_SETTING_NOTE\
+    "# If a specific level is not specified, then the\n"\
+    "# value for the closest lower level is used."
+
+const char *const Settings::GeneralSettings::kSection = "General";
+const char *const Settings::GeneralSettings::kVersionDesc =
+    "# Do not manually change this field. Doing so can prevent this INI file\n"
+    "# from updating with new versions.";
+const char *const Settings::GeneralSettings::kEnableSkillCapsDesc =
+    "# Enables the code which uncap skill levels.";
+const char *const Settings::GeneralSettings::kEnableSkillFormulaCapsDesc =
+    "# Enables the code which cap all skill formulas.";
+const char *const Settings::GeneralSettings::kEnableEnchantingPatchDesc =
+    "# Enables the code which patches to the enchantment charge cost "
+    "calculation.";
+const char *const Settings::GeneralSettings::kEnableSkillExpMultsDesc =
+    "# Enables the code which applies the skill experience multipliers.";
+const char *const Settings::GeneralSettings::kEnableLevelExpMultsDesc =
+    "# Enables the code which applies the level experience multipliers.";
+const char *const Settings::GeneralSettings::kEnablePerkPointsDesc =
+    "# Enables the code which modifies perk point gain.";
+const char *const Settings::GeneralSettings::kEnableAttributePointsDesc =
+    "# Enables the code which modifies attribute point gain.";
+const char *const Settings::GeneralSettings::kEnableLegendaryDesc =
+    "# Enables the code which modifies the legendary skill system.";
+
+const char *const Settings::EnchantSettings::kSection = "Enchanting";
+const char *const Settings::EnchantSettings::kChargeLevelCapDesc =
+    "# Sets the formula cap for the enchanting weapon charge calculation.\n"
+    "# The formula breaks above level 199, so values above that will be ignored.\n"
+    "# This value is also capped by the enchanting skill formula cap.";
+const char *const Settings::EnchantSettings::kUseLinearChargeFormulaDesc =
+    "# Forces the game to use a linear formula for charge level-based weapon\n"
+    "# charge calculation. Useful if the charge cap is close to 199, as the\n"
+    "# later level-ups in enchanting will give massive boosts to the number\n"
+    "# of charge points available.";
+
+const char *const Settings::LegendarySettings::kSection = "LegendarySkill";
+const char *const Settings::LegendarySettings::kKeepSkillLevelDesc =
+    "# This option determines whether the legendary feature will reset the\n"
+    "# skill level. Setting this option to true will make the option\n"
+    "# \"iSkillLevelAfterLegendary\" have no effect.";
+const char *const Settings::LegendarySettings::kHideButtonDesc =
+    "# This option determines whether to hide the legendary button in \"Skills\"\n"
+    "# menu when you meet the requirements to legendary a skill.\n"
+    "# If you set \"iSkillLevelEnableLegendary\" to below 100, the legendary\n"
+    "# button will not show up, but you can make skills legendary normally\n"
+    "# by pressing SPACE.";
+const char *const Settings::LegendarySettings::kSkillLevelEnableDesc =
+    "# This option determines the skill level required to make a skill legendary.";
+const char *const Settings::LegendarySettings::kSkillLevelAfterDesc =
+    "# This option determines the level of a skill after making it legendary.\n"
+    "# Setting this option to 0 will reset the skill level to default level.";
+
+const char *const Settings::kSkillCapsDesc =
+    "# Set the skill level cap. This option determines the upper limit of\n"
+    "# skill level you can reach.";
+const char *const Settings::kSkillFormulaCapsDesc =
+    "# Set the skill formula cap. This option determines the upper limit of\n"
+    "# skill level used in the calculation of all kinds of magic effects.";
+const char *const Settings::kSkillExpGainMultsDesc =
+    "# Set the skill experience gained multiplier. The skill experience\n"
+    "# you gained actually = The final calculated experience value right\n"
+    "# before it is given to the character after any experience\n"
+    "# modification * SkillExpGainMult * Corresponding\n"
+    "# Sub-SkillExpGainMult listed below.";
+const char *const Settings::kSkillExpGainMultsWithPCLevelDesc =
+    "# All the subsections of SkillExpGainMults below allow to set an\n"
+    "# additional multiplier depending on CHARACTER LEVEL, independantly\n"
+    "# for each skill.";
+const char *const Settings::kSkillExpGainMultsWithSkillsDesc =
+    "# All the subsections of SkillExpGainMults below allow to set an\n"
+    "# additional multiplier depending on BASE SKILL LEVEL, independantly\n"
+    "# for each skill.";
+const char *const Settings::kLevelSkillExpMultsDesc =
+    "# Set the skill experience to PC experience multipliers. When you\n"
+    "# level up a skill, the PC experience you gained actually = Current\n"
+    "# base skill level * LevelSkillExpMults * Corresponding "
+    "# Sub-LevelSkillExpMults listed below.";
+const char *const Settings::kLevelSkillExpMultsWithPCLevelDesc =
+    "# All the subsections of LevelSkillExpMults below allow to set an\n"
+    "# additional multipliers depending on CHARACTER LEVEL, independantly\n"
+    "# for each skill.";
+const char *const Settings::kLevelSkillExpMultsWithSkillsDesc =
+    "# All the subsections of LevelSkillExpMults below allow to set an\n"
+    "# additional multipliers depending on BASE SKILL LEVEL, independantly\n"
+    "# for each skill.";
+const char *const Settings::kPerksAtLevelUpDesc =
+    "# Set the number of perks gained at each level up.\n"
+    LEVELED_SETTING_NOTE;
+const char *const Settings::kHealthAtLevelUpDesc =
+    "# Set the number of health gained at each health level up.\n"
+    LEVELED_SETTING_NOTE;
+const char *const Settings::kHealthAtMagickaLevelUpDesc =
+    "# Set the number of health gained at each magicka level up.\n"
+    LEVELED_SETTING_NOTE;
+const char *const Settings::kHealthAtStaminaLevelUpDesc =
+    "# Set the number of health gained at each stamina level up.\n"
+    LEVELED_SETTING_NOTE;
+const char *const Settings::kMagickaAtLevelUpDesc =
+    "# Set the number of magicka gained at each magicka level up.\n"
+    LEVELED_SETTING_NOTE;
+const char *const Settings::kMagickaAtHealthLevelUpDesc =
+    "# Set the number of magicka gained at each health level up.\n"
+    LEVELED_SETTING_NOTE;
+const char *const Settings::kMagickaAtStaminaLevelUpDesc =
+    "# Set the number of magicka gained at each stamina level up.\n"
+    LEVELED_SETTING_NOTE;
+const char *const Settings::kStaminaAtLevelUpDesc =
+    "# Set the number of stamina gained at each stamina level up.\n"
+    LEVELED_SETTING_NOTE;
+const char *const Settings::kStaminaAtHealthLevelUpDesc =
+    "# Set the number of stamina gained at each health level up.\n"
+    LEVELED_SETTING_NOTE;
+const char *const Settings::kStaminaAtMagickaLevelUpDesc =
+    "# Set the number of stamina gained at each magicka level up.\n"
+    LEVELED_SETTING_NOTE;
+const char *const Settings::kCarryWeightAtHealthLevelUpDesc =
+    "# Set the number of carryweight gained at each health level up.\n"
+    LEVELED_SETTING_NOTE;
+const char *const Settings::kCarryWeightAtMagickaLevelUpDesc =
+    "# Set the number of carryweight gained at each magicka level up.\n"
+    LEVELED_SETTING_NOTE;
+const char *const Settings::kCarryWeightAtStaminaLevelUpDesc =
+    "# Set the number of carryweight gained at each stamina level up.\n"
+    LEVELED_SETTING_NOTE;
+
 /**
  * @brief Reads in the general settings section
  */
@@ -26,6 +154,14 @@ Settings::GeneralSettings::ReadConfig(
 ) {
     version.ReadConfig(ini, kSection);
     author.ReadConfig(ini, kSection);
+    enableSkillCaps.ReadConfig(ini, kSection);
+    enableSkillFormulaCaps.ReadConfig(ini, kSection);
+    enableEnchantingPatch.ReadConfig(ini, kSection);
+    enableSkillExpMults.ReadConfig(ini, kSection);
+    enableLevelExpMults.ReadConfig(ini, kSection);
+    enablePerkPoints.ReadConfig(ini, kSection);
+    enableAttributePoints.ReadConfig(ini, kSection);
+    enableLegendary.ReadConfig(ini, kSection);
 }
 
 /**
@@ -35,8 +171,38 @@ void
 Settings::GeneralSettings::SaveConfig(
     CSimpleIniA &ini
 ) {
-    version.SaveConfig(ini, kSection, NULL);
+    version.SaveConfig(ini, kSection, kVersionDesc);
     author.SaveConfig(ini, kSection, NULL);
+    enableSkillCaps.SaveConfig(ini, kSection, kEnableSkillCapsDesc);
+    enableSkillFormulaCaps.SaveConfig(ini, kSection, kEnableSkillFormulaCapsDesc);
+    enableEnchantingPatch.SaveConfig(ini, kSection, kEnableEnchantingPatchDesc);
+    enableSkillExpMults.SaveConfig(ini, kSection, kEnableSkillExpMultsDesc);
+    enableLevelExpMults.SaveConfig(ini, kSection, kEnableLevelExpMultsDesc);
+    enablePerkPoints.SaveConfig(ini, kSection, kEnablePerkPointsDesc);
+    enableAttributePoints.SaveConfig(ini, kSection, kEnableAttributePointsDesc);
+    enableLegendary.SaveConfig(ini, kSection, kEnableLegendaryDesc);
+}
+
+/**
+ * @brief Reads in the enchant settings section.
+ */
+void
+Settings::EnchantSettings::ReadConfig(
+    CSimpleIniA &ini
+) {
+    chargeLevelCap.ReadConfig(ini, kSection);
+    useLinearChargeFormula.ReadConfig(ini, kSection);
+}
+
+/**
+ * @brief Saves the enchant settings section.
+ */
+void
+Settings::EnchantSettings::SaveConfig(
+    CSimpleIniA &ini
+) {
+    chargeLevelCap.SaveConfig(ini, kSection, kChargeLevelCapDesc);
+    useLinearChargeFormula.SaveConfig(ini, kSection, kUseLinearChargeFormulaDesc);
 }
 
 /**
@@ -85,13 +251,14 @@ Settings::SaveConfig(
     general.SaveConfig(ini);
     skillCaps.SaveConfig(ini, kSkillCapsDesc);
     skillFormulaCaps.SaveConfig(ini, kSkillFormulaCapsDesc);
-    perksAtLevelUp.SaveConfig(ini, kPerksAtLevelUpDesc);
+    enchant.SaveConfig(ini);
     skillExpGainMults.SaveConfig(ini, kSkillExpGainMultsDesc);
     skillExpGainMultsWithSkills.SaveConfig(ini, kSkillExpGainMultsWithSkillsDesc);
     skillExpGainMultsWithPCLevel.SaveConfig(ini, kSkillExpGainMultsWithPCLevelDesc);
     levelSkillExpMults.SaveConfig(ini, kLevelSkillExpMultsDesc);
     levelSkillExpMultsWithSkills.SaveConfig(ini, kLevelSkillExpMultsWithSkillsDesc);
     levelSkillExpMultsWithPCLevel.SaveConfig(ini, kLevelSkillExpMultsWithPCLevelDesc);
+    perksAtLevelUp.SaveConfig(ini, kPerksAtLevelUpDesc);
     healthAtLevelUp.SaveConfig(ini, kHealthAtLevelUpDesc);
     healthAtMagickaLevelUp.SaveConfig(ini, kHealthAtMagickaLevelUpDesc);
     healthAtStaminaLevelUp.SaveConfig(ini, kHealthAtStaminaLevelUpDesc);
@@ -156,13 +323,14 @@ Settings::ReadConfig(
 
     skillCaps.ReadConfig(ini);
     skillFormulaCaps.ReadConfig(ini);
-    perksAtLevelUp.ReadConfig(ini);
+    enchant.ReadConfig(ini);
     skillExpGainMults.ReadConfig(ini);
     skillExpGainMultsWithSkills.ReadConfig(ini);
     skillExpGainMultsWithPCLevel.ReadConfig(ini);
     levelSkillExpMults.ReadConfig(ini);
     levelSkillExpMultsWithSkills.ReadConfig(ini);
     levelSkillExpMultsWithPCLevel.ReadConfig(ini);
+    perksAtLevelUp.ReadConfig(ini);
     healthAtLevelUp.ReadConfig(ini);
     healthAtMagickaLevelUp.ReadConfig(ini);
     healthAtStaminaLevelUp.ReadConfig(ini);
@@ -208,14 +376,11 @@ Settings::GetSkillFormulaCap(
 }
 
 /**
- * @brief Gets the number of perk points the player should be given for reaching
- *        the given level.
+ * @brief Gets the current enchanting weapon charge cap.
  */
-unsigned int
-Settings::GetPerkDelta(
-    unsigned int player_level
-) {
-    return perksAtLevelUp.GetCumulativeDelta(player_level);
+float
+Settings::GetEnchantChargeCap() {
+    return MIN(199.0, enchant.chargeLevelCap.Get());
 }
 
 /**
@@ -256,6 +421,17 @@ Settings::GetLevelSkillExpMult(
     float skill_mult = levelSkillExpMultsWithSkills.Get(slot).GetNearest(skill_level);
     float pc_mult = levelSkillExpMultsWithPCLevel.Get(slot).GetNearest(player_level);
     return base_mult * skill_mult * pc_mult;
+}
+
+/**
+ * @brief Gets the number of perk points the player should be given for reaching
+ *        the given level.
+ */
+unsigned int
+Settings::GetPerkDelta(
+    unsigned int player_level
+) {
+    return perksAtLevelUp.GetCumulativeDelta(player_level);
 }
 
 /**
